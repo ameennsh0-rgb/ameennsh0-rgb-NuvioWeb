@@ -184,14 +184,29 @@ export const WebPlayerControls = {
       this.updateVolIcon();
     });
 
-    // Reveal on movement over the player; click on the video toggles play.
+    // Reveal on mouse movement (desktop).
     this.uiRoot.addEventListener("mousemove", () => this.reveal());
+    // Touch / pen devices have no mousemove, so reveal on any pointer down over
+    // the player. A tap on the empty video area toggles the bar's visibility
+    // (mobile-style); the center button and the bar handle play/pause.
+    this.uiRoot.addEventListener("pointerdown", (e) => {
+      if (e.pointerType === "mouse") return; // mouse handled by mousemove
+      if (this.root && this.root.classList.contains("show")) this.hide();
+      else this.reveal();
+    });
     this.uiRoot.addEventListener("click", (e) => {
-      if (e.target === this.video) {
+      if (e.target !== this.video) return;
+      // Mouse: click on video toggles play. Touch handled by pointerdown above.
+      if (e.pointerType === "mouse" || e.pointerType === "" || e.pointerType == null) {
         this.togglePlay();
         this.reveal();
       }
     });
+  },
+
+  hide() {
+    if (this.hideTimer) clearTimeout(this.hideTimer);
+    this.root?.classList.remove("show");
   },
 
   togglePlay() {
