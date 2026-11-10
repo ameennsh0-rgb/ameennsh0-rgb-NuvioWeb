@@ -12,6 +12,7 @@ import { markBootTiming } from "./core/diagnostics/bootTiming.js";
 import { detailWatchedEnrichmentService } from "./data/repository/detailWatchedEnrichmentService.js";
 import { NON_BACKSTACK_ROUTES, Router } from "./ui/navigation/router.js";
 import { FocusEngine } from "./ui/navigation/focusEngine.js";
+import { PartyCallOverlay } from "./core/party/partyCallOverlay.js";
 import { PlayerController } from "./core/player/playerController.js";
 import { AuthManager } from "./core/auth/authManager.js";
 import { AuthState } from "./core/auth/authState.js";
@@ -754,6 +755,7 @@ async function bootstrapApp() {
   MediaServerSyncService.start();
   AmbientMode.start();
   FocusEngine.init();
+  PartyCallOverlay.init();
   setupProviderCredentialForegroundLifecycle();
   setupTizenPlaybackLifecycle();
   setupTizenAppControlLifecycle();
