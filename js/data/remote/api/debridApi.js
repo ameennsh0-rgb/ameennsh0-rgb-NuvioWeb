@@ -1,5 +1,38 @@
 import { fetchViaWebOsDebridAuthProxy } from "../../../platform/webos/webosSupabaseProxy.js";
 
+// Browsers can't call debrid provider APIs directly (CORS), so route them through
+// the Nuvio stream relay's /api passthrough. Native platforms call them directly.
+const STREAM_RELAY_ORIGIN = (() => {
+  try {
+    const u = typeof globalThis !== "undefined" && globalThis.NUVIO_STREAM_PROXY_URL;
+    return u ? new URL(u).origin : "https://nuvio-stream.ameennsh0.workers.dev";
+  } catch (_) {
+    return "https://nuvio-stream.ameennsh0.workers.dev";
+  }
+})();
+
+function isBrowserRuntime() {
+  try {
+    return (
+      typeof window !== "undefined" &&
+      typeof document !== "undefined" &&
+      !globalThis.tizen &&
+      !globalThis.webOS &&
+      !globalThis.webOSSystem &&
+      globalThis.__NUVIO_PLATFORM__ !== "tizen" &&
+      globalThis.__NUVIO_PLATFORM__ !== "webos"
+    );
+  } catch (_) {
+    return false;
+  }
+}
+
+function proxiedDebridUrl(url) {
+  if (!isBrowserRuntime()) return url;
+  if (!/^https?:\/\//i.test(url) || url.indexOf(STREAM_RELAY_ORIGIN) === 0) return url;
+  return STREAM_RELAY_ORIGIN + "/api?url=" + encodeURIComponent(url);
+}
+
 const TORBOX_BASE_URL = "https://api.torbox.app/";
 const PREMIUMIZE_BASE_URL = "https://www.premiumize.me/";
 const REAL_DEBRID_BASE_URL = "https://api.real-debrid.com/rest/1.0/";
@@ -19,7 +52,7 @@ async function requestJson(baseUrl, path, options = {}) {
       }
     };
     response =
-      (await fetchViaWebOsDebridAuthProxy(url, fetchOptions)) || (await fetch(url, fetchOptions));
+      (await fetchViaWebOsDebridAuthProxy(url, fetchOptions)) || (await fetch(proxiedDebridUrl(url), fetchOptions));
   } catch (error) {
     return {
       ok: false,
@@ -54,7 +87,7 @@ async function requestDebridAuthJson(baseUrl, path, options = {}) {
   };
   try {
     const response =
-      (await fetchViaWebOsDebridAuthProxy(url, fetchOptions)) || (await fetch(url, fetchOptions));
+      (await fetchViaWebOsDebridAuthProxy(url, fetchOptions)) || (await fetch(proxiedDebridUrl(url), fetchOptions));
     const text = await response.text();
     let data = null;
     if (text.trim()) {
