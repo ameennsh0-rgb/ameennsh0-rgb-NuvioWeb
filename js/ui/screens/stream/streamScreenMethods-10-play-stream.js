@@ -1,4 +1,5 @@
 import { activeStreamLinkProfile } from "../../../data/local/streamLinkCacheStore.js";
+import { saveWebPlaybackResume } from "../../../core/player/webPlaybackResume.js";
 /* eslint-disable no-unused-vars */
 import * as internals from "./streamScreen.js";
 
@@ -60,6 +61,7 @@ export function createStreamScreenMethods10() {
       }
 
       if (loadToken !== this.loadToken || Router.getCurrent() !== "stream" || profileId !== activeStreamLinkProfile()) return;
+      saveWebPlaybackResume(this.params);
       Router.navigate("player", {
         streamUrl: selected.url || selected.externalUrl || null,
         itemId: this.params?.itemId || null,

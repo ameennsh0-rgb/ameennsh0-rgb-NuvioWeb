@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./profileSelectionScreen.js";
+import { restoreWebPlaybackAfterRefresh } from "../player/webPlaybackResume.js";
 
 export function createProfileSelectionScreenMethods07() {
   const {
@@ -189,6 +190,7 @@ export function createProfileSelectionScreenMethods07() {
           experienceRoute === "home" ? { forceReload: true } : {},
           experienceRoute === "home" ? {} : { replaceHistory: true, skipStackPush: true }
         );
+        if (experienceRoute === "home") restoreWebPlaybackAfterRefresh();
       } catch (error) {
         console.warn("Failed to activate profile", error);
         this.isActivatingProfile = false;

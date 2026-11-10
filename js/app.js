@@ -39,6 +39,7 @@ import { shouldShowUpdate } from "./core/update/updateBannerPolicy.js";
 import { showAppUpdatePrompt } from "./ui/components/appUpdatePrompt.js";
 import { resolveExperienceRoute } from "./core/profile/experienceModeRouting.js";
 import { PluginRuntime } from "./core/player/pluginRuntime.js";
+import { restoreWebPlaybackAfterRefresh } from "./core/player/webPlaybackResume.js";
 import { installPartyEffects } from "./ui/screens/party/partyEffects.js";
 import {
   hasPendingLaunchDeepLink,
@@ -438,6 +439,10 @@ async function enterWithLastProfile({ restoreWebOsRoute = false } = {}) {
       ...(isHomeResumeRoute ? resumeRoute.params || {} : {}),
       ...(StartupSyncService.started ? { forceReload: true } : {})
     });
+    // Web only: if the user was watching when the page was refreshed, reopen the
+    // stream screen for that title (over Home, so Back works). "Reuse last link"
+    // then auto-resumes the same stream at its saved position — no re-selecting.
+    if (!hasPendingLaunchDeepLink()) restoreWebPlaybackAfterRefresh();
   }
 }
 

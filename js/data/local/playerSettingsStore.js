@@ -82,7 +82,7 @@ const DEFAULTS = {
   streamAutoPlayRegex: "",
   streamAutoPlayPreferBingeGroupForNextEpisode: true,
   streamAutoPlayReuseBingeGroup: false,
-  streamReuseLastLinkEnabled: false,
+  streamReuseLastLinkEnabled: true,
   streamReuseLastLinkCacheHours: 24,
   streamAutoPlayTimeoutSeconds: 3
 };

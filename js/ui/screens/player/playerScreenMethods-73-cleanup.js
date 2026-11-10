@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-vars */
 import * as internals from "./playerScreenContext.js";
+import { clearWebPlaybackResume } from "../../../core/player/webPlaybackResume.js";
 
 export function createPlayerScreenMethods73() {
   const { PlayerController, streamRepository, TrackingScrobbleService, ENGINEFS_NAVIGATION_CLEANUP_GRACE_MS } = internals;
@@ -13,6 +14,10 @@ export function createPlayerScreenMethods73() {
       }
     },
     cleanup() {
+      // The web refresh-resume record exists only while actively watching, so a
+      // normal exit (Back/finish) clears it. A page refresh skips cleanup, so the
+      // record survives and boot resumes playback. (No-op off the web.)
+      clearWebPlaybackResume();
       this.closeStreamInfo({ restore: false });
       this.stopTrackingBeforeTeardown();
       try {
