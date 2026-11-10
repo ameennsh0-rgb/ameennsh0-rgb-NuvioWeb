@@ -54,6 +54,19 @@ export const PartyCallOverlay = {
     } catch (e) {
       console.warn("PartyCallOverlay: subscribe failed", e);
     }
+    // Keep the bubble attached to the player controls (so it hides/shows with
+    // them) when in the player, otherwise floating.
+    setInterval(() => {
+      if (this.room) this.ensureMount();
+    }, 1000);
+  },
+
+  ensureMount() {
+    if (!this.els.root) return;
+    const controls = document.getElementById("playerControlsOverlay");
+    const parent = controls || document.body;
+    if (this.els.root.parentNode !== parent) parent.appendChild(this.els.root);
+    this.els.root.classList.toggle("in-player", !!controls);
   },
 
   onParty(party) {
@@ -252,7 +265,9 @@ export const PartyCallOverlay = {
   injectStyles() {
     if (document.getElementById("nuvio-call-styles")) return;
     const css = `
-#nuvio-call{position:fixed;right:18px;top:84px;z-index:2147483000;display:none;flex-direction:column;align-items:flex-end;gap:8px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+#nuvio-call{position:fixed;right:18px;top:84px;z-index:2147483000;display:none;flex-direction:column;align-items:flex-end;gap:8px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;pointer-events:none}
+#nuvio-call>*{pointer-events:auto}
+#nuvio-call.in-player{position:absolute;right:18px;top:18px}
 #nuvio-call .ncbtn{display:flex;align-items:center;gap:8px;background:rgba(16,16,22,.9);color:#fff;border:0;border-radius:999px;padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 4px 18px rgba(0,0,0,.4)}
 #nuvio-call .nctiles{display:flex;flex-direction:column;gap:8px}
 #nuvio-call .nctile{position:relative;width:150px;height:110px;border-radius:14px;overflow:hidden;background:#20202a;box-shadow:0 6px 20px rgba(0,0,0,.45)}
@@ -283,6 +298,7 @@ export const PartyCallOverlay = {
 
   show() {
     if (this.els.root) this.els.root.style.display = "flex";
+    this.ensureMount();
   },
   hide() {
     if (this.els.root) this.els.root.style.display = "none";

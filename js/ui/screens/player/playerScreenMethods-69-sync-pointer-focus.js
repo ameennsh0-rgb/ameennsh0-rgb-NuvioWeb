@@ -172,6 +172,71 @@ export function createPlayerScreenMethods69() {
       this.resetControlsAutoHide();
       return true;
     },
+    setupPointerSurface() {
+      const root = this.uiRefs?.root;
+      if (!root || root.__nuvioPointerBound) return;
+      root.__nuvioPointerBound = true;
+
+      const interactiveSelector =
+        ".player-control-btn, .player-progress-shell, #playerControlButtons, #playerSourcesPanel," +
+        " .player-sources-panel, .player-modal, [data-action], [data-player-pointer-action]," +
+        " [role='button'], button, a, input, .focusable";
+
+      // Reveal controls on mouse movement (like any desktop video player).
+      root.addEventListener("mousemove", () => {
+        if (this.isExternalFrameMode?.()) return;
+        if (this.isDialogOpen?.() || this.isPostPlayVisible?.() || this.isStartupErrorVisible?.()) return;
+        if (!this.controlsVisible) this.setControlsVisible(true, { focus: false });
+        this.resetControlsAutoHide?.();
+      });
+
+      // Click on empty video area toggles controls; clicks on controls are left
+      // to their own handlers.
+      root.addEventListener("click", (event) => {
+        if (this.isExternalFrameMode?.()) return;
+        if (event.target?.closest?.(interactiveSelector)) return;
+        if (this.isDialogOpen?.() || this.isPostPlayVisible?.() || this.isStartupErrorVisible?.()) return;
+        if (this.controlsVisible) {
+          this.setControlsVisible(false, { focus: false });
+        } else {
+          this.setControlsVisible(true, { focus: false });
+          this.resetControlsAutoHide?.();
+        }
+      });
+
+      // Drag-to-seek on the progress bar.
+      const shell = this.uiRefs?.progressShell;
+      if (shell && !shell.__nuvioSeekBound) {
+        shell.__nuvioSeekBound = true;
+        let dragging = false;
+        const seek = (ev) => {
+          try {
+            this.seekProgressFromPointer?.(ev, shell);
+          } catch (_) {}
+        };
+        shell.addEventListener("pointerdown", (ev) => {
+          dragging = true;
+          try {
+            shell.setPointerCapture?.(ev.pointerId);
+          } catch (_) {}
+          seek(ev);
+          ev.preventDefault();
+          ev.stopPropagation();
+        });
+        shell.addEventListener("pointermove", (ev) => {
+          if (dragging) seek(ev);
+        });
+        const end = (ev) => {
+          if (!dragging) return;
+          dragging = false;
+          try {
+            shell.releasePointerCapture?.(ev.pointerId);
+          } catch (_) {}
+        };
+        shell.addEventListener("pointerup", end);
+        shell.addEventListener("pointercancel", end);
+      }
+    },
     onPointerSurfaceActivate(target) {
       if (
         !target ||
