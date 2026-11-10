@@ -363,21 +363,43 @@ export const FocusEngine = {
     if (hasActiveModal()) {
       return;
     }
-    if (typeof currentScreen?.onPointerActivate !== "function") {
-      return;
-    }
-    const handled = currentScreen.onPointerActivate(target, event);
-    if (handled && typeof handled.then === "function") {
-      event?.preventDefault?.();
-      event?.stopPropagation?.();
-      event?.stopImmediatePropagation?.();
-      handled.catch((error) => console.warn("Screen pointer activation failed", error));
-      return;
+    let handled = false;
+    if (typeof currentScreen?.onPointerActivate === "function") {
+      handled = currentScreen.onPointerActivate(target, event);
+      if (handled && typeof handled.then === "function") {
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
+        event?.stopImmediatePropagation?.();
+        handled.catch((error) => console.warn("Screen pointer activation failed", error));
+        return;
+      }
     }
     if (handled) {
       event?.preventDefault?.();
       event?.stopPropagation?.();
       event?.stopImmediatePropagation?.();
+      return;
     }
+    // Fallback: the screen didn't handle this pointer click directly, so
+    // synthesize the same "select" (Enter) the TV remote's center button
+    // sends. The target was just focused above, so each screen's onKeyDown
+    // activates it exactly as it would for a remote. This makes the mouse
+    // work across screens that only implement focus + key handling.
+    this.activateFocusedViaSelect(target, event);
+  },
+
+  activateFocusedViaSelect(target, event) {
+    if (!target) return;
+    // Native form controls and links handle their own activation already.
+    const tag = (target.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea" || tag === "select" || tag === "a" || tag === "button") {
+      return;
+    }
+    const opts = { key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true, cancelable: true };
+    try {
+      target.dispatchEvent(new KeyboardEvent("keydown", opts));
+      target.dispatchEvent(new KeyboardEvent("keyup", opts));
+      event?.preventDefault?.();
+    } catch (_) {}
   }
 };
