@@ -68,9 +68,17 @@
 
 .player-progress-shell {
   width: 100%;
-  padding: 0;
+  /* Vertical padding enlarges the clickable/draggable hit area for a mouse or
+     finger (the visible track stays 6px); the negative margin keeps layout. */
+  padding: 11px 0;
   outline: none;
-  margin-top: 12px;
+  margin-top: 1px;
+  margin-bottom: -11px;
+  /* The controls overlay is pointer-events:none; only interactive controls opt
+     back in. The seek bar was missed, so pointer clicks fell through to the
+     video and seeking never worked. */
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 .player-progress-track {
