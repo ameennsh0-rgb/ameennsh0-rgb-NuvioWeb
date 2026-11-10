@@ -89,33 +89,9 @@
             target.dispatchEvent(new KeyboardEvent("keydown", { key: name, bubbles: true, cancelable: true }));
           } catch (e) {}
         }
-        document.addEventListener(
-          "mousemove",
-          function (e) {
-            var el = focusable(e.target);
-            if (!el || el === document.activeElement) return;
-            var now = Date.now();
-            if (now - lastHover < 45) return;
-            lastHover = now;
-            try {
-              el.focus({ preventScroll: true });
-            } catch (e2) {
-              try { el.focus(); } catch (e3) {}
-            }
-          },
-          true
-        );
-        document.addEventListener(
-          "click",
-          function (e) {
-            if (e.target.closest && e.target.closest(NATIVE)) return;
-            var el = focusable(e.target);
-            if (!el) return;
-            try { el.focus(); } catch (e2) {}
-            sendKey("Enter", el);
-          },
-          true
-        );
+        // Hover-to-focus and click-to-activate are handled by the app's built-in
+        // pointer system (FocusEngine), enabled for the browser. This shim only
+        // adds a mouse Back affordance and horizontal wheel scrolling for rows.
         document.addEventListener(
           "mouseup",
           function (e) {
