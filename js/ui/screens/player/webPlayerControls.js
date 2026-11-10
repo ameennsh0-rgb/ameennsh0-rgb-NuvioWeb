@@ -21,14 +21,16 @@ function isBrowserRuntime() {
 }
 
 const SVG = {
-  play: '<svg viewBox="0 0 24 24" width="26" height="26"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>',
-  pause: '<svg viewBox="0 0 24 24" width="26" height="26"><path fill="currentColor" d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>',
-  back10: '<svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M12 5V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z"/></svg>',
-  fwd10: '<svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M12 5V1l5 5-5 5V7a6 6 0 1 0 6 6h2a8 8 0 1 1-8-8z"/></svg>',
-  vol: '<svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z"/></svg>',
-  mute: '<svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13 .5L14.5 11 16 12.5 14.5 14 16 15.5 17.5 14 19 15.5 20.5 14 19 12.5 20.5 11 19 9.5 17.5 11z"/></svg>',
-  full: '<svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M7 14H5v5h5v-2H7zm-2-4h2V7h3V5H5zm12 7h-3v2h5v-5h-2zM14 5v2h3v3h2V5z"/></svg>',
-  cc: '<svg viewBox="0 0 24 24" width="22" height="22"><path fill="currentColor" d="M19 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM9 11H7.5v-.5h-2v3h2V13H9v1a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1zm7 0h-1.5v-.5h-2v3h2V13H16v1a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1z"/></svg>',
+  play: '<svg viewBox="0 0 24 24" width="30" height="30"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24" width="30" height="30"><path fill="currentColor" d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>',
+  bigplay: '<svg viewBox="0 0 24 24" width="46" height="46"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>',
+  bigpause: '<svg viewBox="0 0 24 24" width="46" height="46"><path fill="currentColor" d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>',
+  back10: '<svg viewBox="0 0 24 24" width="28" height="28"><path fill="currentColor" d="M12 5V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z"/></svg>',
+  fwd10: '<svg viewBox="0 0 24 24" width="28" height="28"><path fill="currentColor" d="M12 5V1l5 5-5 5V7a6 6 0 1 0 6 6h2a8 8 0 1 1-8-8z"/></svg>',
+  vol: '<svg viewBox="0 0 24 24" width="28" height="28"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z"/></svg>',
+  mute: '<svg viewBox="0 0 24 24" width="28" height="28"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13 .5L14.5 11 16 12.5 14.5 14 16 15.5 17.5 14 19 15.5 20.5 14 19 12.5 20.5 11 19 9.5 17.5 11z"/></svg>',
+  full: '<svg viewBox="0 0 24 24" width="28" height="28"><path fill="currentColor" d="M7 14H5v5h5v-2H7zm-2-4h2V7h3V5H5zm12 7h-3v2h5v-5h-2zM14 5v2h3v3h2V5z"/></svg>',
+  cc: '<svg viewBox="0 0 24 24" width="28" height="28"><path fill="currentColor" d="M19 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM9 11H7.5v-.5h-2v3h2V13H9v1a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1zm7 0h-1.5v-.5h-2v3h2V13H16v1a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1z"/></svg>',
 };
 
 function icon(name, label) {
@@ -74,6 +76,7 @@ export const WebPlayerControls = {
     root.id = "webplayer-controls";
     root.innerHTML = `
       <div class="wp-tap"></div>
+      <button class="wp-center" id="wpCenter" title="Play/Pause">${icon("bigplay")}</button>
       <div class="wp-bar">
         <div class="wp-seek" id="wpSeek">
           <div class="wp-seek-track">
@@ -113,6 +116,7 @@ export const WebPlayerControls = {
       mute: root.querySelector("#wpMute"),
       vol: root.querySelector("#wpVol"),
       tap: root.querySelector(".wp-tap"),
+      center: root.querySelector("#wpCenter"),
     };
     this.bind();
     this.reveal();
@@ -191,6 +195,11 @@ export const WebPlayerControls = {
       this.reveal();
     });
     this.els.tap.addEventListener("dblclick", () => this.onAction("fullscreen"));
+    this.els.center.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.onAction("playPause");
+      this.reveal();
+    });
     this.root.addEventListener("mousemove", () => this.reveal());
   },
 
@@ -282,6 +291,10 @@ export const WebPlayerControls = {
     this.els.time.textContent = fmt(cur) + " / " + (dur ? fmt(dur) : "0:00");
     const playing = !v.paused && !v.ended;
     this.els.play.innerHTML = playing ? icon("pause") : icon("play");
+    if (this.els.center) {
+      this.els.center.innerHTML = playing ? icon("bigpause") : icon("bigplay");
+      this.els.center.style.opacity = playing ? "0" : "1";
+    }
   },
 
   updateVolIcon() {
@@ -307,26 +320,29 @@ export const WebPlayerControls = {
 .webplayer-active #playerControlsOverlay{display:none!important}
 #webplayer-controls{position:absolute;inset:0;z-index:40;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;pointer-events:none}
 #webplayer-controls .wp-tap{position:absolute;inset:0;pointer-events:auto;cursor:pointer}
-#webplayer-controls .wp-bar{position:absolute;left:0;right:0;bottom:0;padding:16px 22px 18px;background:linear-gradient(to top,rgba(0,0,0,.85),rgba(0,0,0,.45) 55%,transparent);opacity:0;transform:translateY(8px);transition:opacity .18s,transform .18s;pointer-events:none}
+#webplayer-controls .wp-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:84px;height:84px;border:0;border-radius:50%;background:rgba(0,0,0,.5);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity .18s,transform .12s;pointer-events:none}
+#webplayer-controls.show .wp-center{pointer-events:auto}
+#webplayer-controls .wp-center:hover{transform:translate(-50%,-50%) scale(1.06);background:rgba(0,0,0,.65)}
+#webplayer-controls .wp-bar{position:absolute;left:0;right:0;bottom:0;padding:22px 30px 22px;background:linear-gradient(to top,rgba(0,0,0,.9),rgba(0,0,0,.5) 55%,transparent);opacity:0;transform:translateY(10px);transition:opacity .18s,transform .18s;pointer-events:none}
 #webplayer-controls.show .wp-bar{opacity:1;transform:none;pointer-events:auto}
 #webplayer-controls.show .wp-tap{cursor:default}
-#webplayer-controls .wp-seek{position:relative;height:16px;display:flex;align-items:center;cursor:pointer;margin-bottom:6px}
-#webplayer-controls .wp-seek-track{position:relative;width:100%;height:5px;border-radius:3px;background:rgba(255,255,255,.28);overflow:hidden}
-#webplayer-controls .wp-seek:hover .wp-seek-track{height:7px}
-#webplayer-controls .wp-buffered{position:absolute;left:0;top:0;bottom:0;background:rgba(255,255,255,.4);width:0}
+#webplayer-controls .wp-seek{position:relative;height:26px;display:flex;align-items:center;cursor:pointer;margin-bottom:10px}
+#webplayer-controls .wp-seek-track{position:relative;width:100%;height:7px;border-radius:4px;background:rgba(255,255,255,.3);overflow:hidden}
+#webplayer-controls .wp-seek:hover .wp-seek-track{height:10px}
+#webplayer-controls .wp-buffered{position:absolute;left:0;top:0;bottom:0;background:rgba(255,255,255,.45);width:0}
 #webplayer-controls .wp-played{position:absolute;left:0;top:0;bottom:0;background:#3dd68c;width:0}
-#webplayer-controls .wp-thumb{position:absolute;top:50%;left:0;width:13px;height:13px;border-radius:50%;background:#3dd68c;transform:translate(-50%,-50%);box-shadow:0 1px 4px rgba(0,0,0,.5);opacity:0;transition:opacity .15s}
+#webplayer-controls .wp-thumb{position:absolute;top:50%;left:0;width:18px;height:18px;border-radius:50%;background:#3dd68c;transform:translate(-50%,-50%);box-shadow:0 1px 5px rgba(0,0,0,.6);opacity:0;transition:opacity .15s}
 #webplayer-controls .wp-seek:hover .wp-thumb{opacity:1}
-#webplayer-controls .wp-row{display:flex;align-items:center;gap:6px}
-#webplayer-controls .wp-btn{display:flex;align-items:center;justify-content:center;min-width:38px;height:38px;padding:0 10px;border:0;border-radius:9px;background:transparent;color:#fff;cursor:pointer;font-size:13px;font-weight:600;line-height:1}
-#webplayer-controls .wp-btn:hover{background:rgba(255,255,255,.16)}
-#webplayer-controls .wp-txt{letter-spacing:.01em}
-#webplayer-controls .wp-time{color:#eee;font-size:13px;margin:0 8px;white-space:nowrap}
+#webplayer-controls .wp-row{display:flex;align-items:center;gap:10px}
+#webplayer-controls .wp-btn{display:flex;align-items:center;justify-content:center;min-width:52px;height:52px;padding:0 14px;border:0;border-radius:11px;background:transparent;color:#fff;cursor:pointer;font-size:16px;font-weight:600;line-height:1}
+#webplayer-controls .wp-btn:hover{background:rgba(255,255,255,.18)}
+#webplayer-controls .wp-txt{letter-spacing:.01em;font-size:16px}
+#webplayer-controls .wp-time{color:#fff;font-size:16px;margin:0 10px;white-space:nowrap;font-variant-numeric:tabular-nums}
 #webplayer-controls .wp-spacer{flex:1}
 #webplayer-controls .wp-vol{display:flex;align-items:center}
-#webplayer-controls .wp-vol-range{width:0;opacity:0;transition:width .18s,opacity .18s;accent-color:#3dd68c;cursor:pointer}
-#webplayer-controls .wp-vol:hover .wp-vol-range{width:84px;opacity:1;margin-left:2px}
-@media(max-width:640px){#webplayer-controls .wp-txt{display:none}}`;
+#webplayer-controls .wp-vol-range{width:0;opacity:0;transition:width .18s,opacity .18s;accent-color:#3dd68c;cursor:pointer;height:6px}
+#webplayer-controls .wp-vol:hover .wp-vol-range{width:100px;opacity:1;margin-left:4px}
+@media(max-width:760px){#webplayer-controls .wp-txt{display:none}#webplayer-controls .wp-bar{padding:16px 16px 18px}}`;
     const style = document.createElement("style");
     style.id = "webplayer-styles";
     style.textContent = css;
