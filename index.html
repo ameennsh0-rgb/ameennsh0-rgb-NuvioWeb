@@ -68,5 +68,98 @@
       src="app.bundle.js?v=20260531supporters2"
       onerror="window.NuvioBootGuard && window.NuvioBootGuard.scriptFailed(this.src)"
     ></script>
+
+    <!-- Pointer navigation bridge: lets a mouse drive this TV-focus UI.
+         Hover moves focus, click selects (Enter), wheel scrolls rows,
+         and a corner button / mouse back-button goes back (Escape). -->
+    <script>
+      (function pointerBridge() {
+        try {
+          if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) return;
+        } catch (e) {}
+        var FOCUSABLE = '.focusable,[data-focus-key],[tabindex]:not([tabindex="-1"])';
+        var NATIVE = 'a[href],button,input,textarea,select,[role="button"],[contenteditable="true"],video';
+        var lastHover = 0;
+        function focusable(t) {
+          return t && t.closest ? t.closest(FOCUSABLE) : null;
+        }
+        function sendKey(name, el) {
+          var target = el || document.activeElement || document.body || document;
+          try {
+            target.dispatchEvent(new KeyboardEvent("keydown", { key: name, bubbles: true, cancelable: true }));
+          } catch (e) {}
+        }
+        document.addEventListener(
+          "mousemove",
+          function (e) {
+            var el = focusable(e.target);
+            if (!el || el === document.activeElement) return;
+            var now = Date.now();
+            if (now - lastHover < 45) return;
+            lastHover = now;
+            try {
+              el.focus({ preventScroll: true });
+            } catch (e2) {
+              try { el.focus(); } catch (e3) {}
+            }
+          },
+          true
+        );
+        document.addEventListener(
+          "click",
+          function (e) {
+            if (e.target.closest && e.target.closest(NATIVE)) return;
+            var el = focusable(e.target);
+            if (!el) return;
+            try { el.focus(); } catch (e2) {}
+            sendKey("Enter", el);
+          },
+          true
+        );
+        document.addEventListener(
+          "mouseup",
+          function (e) {
+            if (e.button === 3 || e.button === 4) {
+              e.preventDefault();
+              sendKey("Escape");
+            }
+          },
+          true
+        );
+        document.addEventListener(
+          "wheel",
+          function (e) {
+            var row =
+              e.target.closest &&
+              e.target.closest('[class*="row"],[class*="rail"],[class*="carousel"],[class*="shelf"]');
+            if (row && row.scrollWidth > row.clientWidth + 4 && Math.abs(e.deltaY) >= Math.abs(e.deltaX)) {
+              row.scrollLeft += e.deltaY;
+            }
+          },
+          { passive: true }
+        );
+        function addBackButton() {
+          if (document.getElementById("nuvio-pointer-back")) return;
+          if (!document.body) return;
+          var b = document.createElement("button");
+          b.id = "nuvio-pointer-back";
+          b.setAttribute("aria-label", "Back");
+          b.textContent = "←";
+          b.style.cssText =
+            "position:fixed;left:12px;bottom:12px;z-index:99999;width:40px;height:40px;border:0;border-radius:50%;" +
+            "background:rgba(0,0,0,.45);color:#fff;font-size:19px;cursor:pointer;opacity:.5;transition:opacity .15s;" +
+            "display:flex;align-items:center;justify-content:center";
+          b.onmouseenter = function () { b.style.opacity = "1"; };
+          b.onmouseleave = function () { b.style.opacity = ".5"; };
+          b.addEventListener("click", function (ev) {
+            ev.stopPropagation();
+            sendKey("Escape");
+          });
+          document.body.appendChild(b);
+        }
+        if (document.body) addBackButton();
+        else document.addEventListener("DOMContentLoaded", addBackButton);
+      })();
+    </script>
   </body>
 </html>
