@@ -220,6 +220,10 @@ export function createPlayerScreenMethods15() {
         this.renderSeekOverlay();
         this.renderPauseOverlay();
         this.renderNextEpisodeCard();
+        // Wire mouse/touch: reveal controls on movement, tap to toggle, and
+        // drag-to-seek on the progress bar. Without this the on-screen controls
+        // are unreachable with a pointer (they only showed via the TV remote).
+        this.setupPointerSurface?.();
       }
     },
     cachePlayerUiRefs(root = null) {

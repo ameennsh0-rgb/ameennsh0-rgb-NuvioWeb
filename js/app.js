@@ -13,7 +13,6 @@ import { detailWatchedEnrichmentService } from "./data/repository/detailWatchedE
 import { NON_BACKSTACK_ROUTES, Router } from "./ui/navigation/router.js";
 import { FocusEngine } from "./ui/navigation/focusEngine.js";
 import { PartyCallOverlay } from "./core/party/partyCallOverlay.js";
-import { WebPlayerControls } from "./ui/screens/player/webPlayerControls.js";
 import { PlayerController } from "./core/player/playerController.js";
 import { AuthManager } from "./core/auth/authManager.js";
 import { AuthState } from "./core/auth/authState.js";
@@ -757,7 +756,6 @@ async function bootstrapApp() {
   AmbientMode.start();
   FocusEngine.init();
   PartyCallOverlay.init();
-  WebPlayerControls.init();
   setupProviderCredentialForegroundLifecycle();
   setupTizenPlaybackLifecycle();
   setupTizenAppControlLifecycle();
