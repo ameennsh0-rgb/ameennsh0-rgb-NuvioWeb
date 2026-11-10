@@ -3,6 +3,42 @@ import { describeSourceHost, isDirectMediaProbeResponse, resolveTizenDirectRedir
 /* eslint-disable no-unused-vars */
 import * as internals from "./playerController.js";
 
+// Browser-only: route remote streams through the Nuvio stream relay so the page
+// can fetch sources that block direct browser requests (hotlink protection, CORS).
+// The relay spoofs Referer/Origin, forwards Range, rewrites HLS, and adds CORS.
+const STREAM_RELAY_URL =
+  (typeof globalThis !== "undefined" && globalThis.NUVIO_STREAM_PROXY_URL) ||
+  "https://nuvio-stream.ameennsh0.workers.dev/stream";
+
+function relayBase64Url(s) {
+  try {
+    return btoa(unescape(encodeURIComponent(s))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  } catch (_) {
+    return "";
+  }
+}
+
+function isStreamRelayUrl(u) {
+  const base = String(STREAM_RELAY_URL || "").split("?")[0];
+  return typeof u === "string" && base && u.indexOf(base) === 0;
+}
+
+function wrapWithStreamRelay(u, headers) {
+  if (!u || isStreamRelayUrl(u) || !/^https?:\/\//i.test(u)) return u;
+  let q = STREAM_RELAY_URL + (STREAM_RELAY_URL.indexOf("?") >= 0 ? "&" : "?") + "url=" + encodeURIComponent(u);
+  if (headers && typeof headers === "object") {
+    const obj = {};
+    Object.keys(headers).forEach((k) => {
+      if (headers[k]) obj[k] = String(headers[k]);
+    });
+    if (Object.keys(obj).length) {
+      const enc = relayBase64Url(JSON.stringify(obj));
+      if (enc) q += "&h=" + encodeURIComponent(enc);
+    }
+  }
+  return q;
+}
+
 export function createPlayerControllerMethods18() {
   const { Platform, TizenPlaybackProxy, WebOsPlaybackProxy, logEngineFsDebug, logTizenAvPlayDebug, logWebOsPlaybackDebug } = internals;
 
@@ -106,6 +142,17 @@ export function createPlayerControllerMethods18() {
       }
 
       let playbackUrl = requestedUrl;
+      // Browser: protected sources can't be fetched by the page directly, so route
+      // the bytes through the stream relay. Type/engine detection above ran on the
+      // real URL; only the URL the engine loads is swapped.
+      if (
+        Platform.isBrowser() &&
+        !isStreamRelayUrl(requestedUrl) &&
+        /^https?:\/\//i.test(requestedUrl)
+      ) {
+        playbackUrl = wrapWithStreamRelay(requestedUrl, requestHeaders);
+        this.currentPlaybackUrl = playbackUrl;
+      }
       let tizenProxyUnavailable = false;
       let tizenAvPlayFallbackForProxyUnavailable = false;
       const canUseTizenPlaybackProxy =
