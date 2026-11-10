@@ -343,7 +343,7 @@ export const WebPlayerControls = {
 #webplayer-controls .wp-vol{display:flex;align-items:center}
 #webplayer-controls .wp-vol-range{width:0;opacity:0;transition:width .2s,opacity .2s;accent-color:#3dd68c;cursor:pointer;height:7px}
 #webplayer-controls .wp-vol:hover .wp-vol-range{width:120px;opacity:1;margin-left:6px}
-@media(max-width:820px){#webplayer-controls .wp-bar{padding:16px 14px 18px}#webplayer-controls .wp-btn{min-width:52px;height:52px;padding:0 12px;font-size:16px}#webplayer-controls .wp-txt{font-size:16px}#webplayer-controls .wp-row{overflow-x:auto;overflow-y:hidden;gap:8px;scrollbar-width:none;-webkit-overflow-scrolling:touch}#webplayer-controls .wp-row::-webkit-scrollbar{display:none}#webplayer-controls .wp-spacer{display:none}#webplayer-controls .wp-time{margin:0 8px;font-size:16px}#webplayer-controls .wp-vol-range{display:none}#webplayer-controls .wp-vol:hover .wp-vol-range{display:none}}`;
+@media(max-width:820px){#webplayer-controls .wp-bar{padding:16px 14px 18px}#webplayer-controls .wp-btn{min-width:52px;height:52px;padding:0 12px;font-size:16px}#webplayer-controls .wp-txt{font-size:16px}#webplayer-controls .wp-row{overflow-x:auto;overflow-y:hidden;gap:6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}#webplayer-controls .wp-row>*{flex:0 0 auto}#webplayer-controls .wp-vol{flex:0 0 auto}#webplayer-controls .wp-row::-webkit-scrollbar{display:none}#webplayer-controls .wp-spacer{display:none}#webplayer-controls .wp-time{margin:0 8px;font-size:16px}#webplayer-controls .wp-vol-range{display:none}#webplayer-controls .wp-vol:hover .wp-vol-range{display:none}}`;
     const style = document.createElement("style");
     style.id = "webplayer-styles";
     style.textContent = css;
