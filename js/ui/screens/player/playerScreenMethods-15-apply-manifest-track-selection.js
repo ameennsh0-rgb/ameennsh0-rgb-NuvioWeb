@@ -205,7 +205,6 @@ export function createPlayerScreenMethods15() {
 
       this.container.appendChild(root);
       this.cachePlayerUiRefs(root);
-      this.setupPointerSurface();
       this.syncPlayerOverlayLayoutState();
       this.bindLoadingLogoFallback();
       if (!this.isExternalFrameMode()) {

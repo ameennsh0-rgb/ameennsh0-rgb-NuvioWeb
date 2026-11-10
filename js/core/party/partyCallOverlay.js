@@ -63,10 +63,12 @@ export const PartyCallOverlay = {
 
   ensureMount() {
     if (!this.els.root) return;
-    const controls = document.getElementById("playerControlsOverlay");
-    const parent = controls || document.body;
+    // Mount inside the player UI (above the custom controls) when in the player
+    // so the call button and tiles are visible and clickable; otherwise float.
+    const player = document.getElementById("playerUiRoot");
+    const parent = player || document.body;
     if (this.els.root.parentNode !== parent) parent.appendChild(this.els.root);
-    this.els.root.classList.toggle("in-player", !!controls);
+    this.els.root.classList.toggle("in-player", !!player);
   },
 
   onParty(party) {
