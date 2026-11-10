@@ -1,14 +1,13 @@
 // A mouse-first player control bar for the web build.
 //
-// The built-in player controls are designed for a TV remote (focus + Enter) and
-// are awkward with a mouse. This module renders its own control bar over the
-// real <video id="videoPlayer"> element and drives playback through the existing
-// player screen methods (performControlAction / seekPlaybackSeconds), so all the
-// real functionality — play/pause, seek, subtitles, audio, sources, speed,
-// episodes, watch party — keeps working, just with proper mouse interactions.
+// The built-in player controls are designed for a TV remote. This module renders
+// its own control bar over the real <video id="videoPlayer"> and drives the core
+// transport (play/pause, seek, volume, fullscreen) DIRECTLY on the video element
+// so it can't fail, while advanced buttons (subtitles, audio, sources, speed,
+// episodes, party) reuse the existing player screen methods.
 //
-// It activates only in a browser, polls for the player being on screen, hides
-// the native control bar while active, and cleans up when the player closes.
+// Only the bottom bar and the center button capture clicks; the rest is
+// pass-through so native panels (sources/subtitles) aren't blocked.
 
 import { Router } from "../../navigation/router.js";
 
@@ -20,26 +19,23 @@ function isBrowserRuntime() {
   }
 }
 
+const S = (w, d) => `<svg viewBox="0 0 24 24" width="${w}" height="${w}"><path fill="currentColor" d="${d}"/></svg>`;
 const SVG = {
-  play: '<svg viewBox="0 0 24 24" width="30" height="30"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>',
-  pause: '<svg viewBox="0 0 24 24" width="30" height="30"><path fill="currentColor" d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>',
-  bigplay: '<svg viewBox="0 0 24 24" width="46" height="46"><path fill="currentColor" d="M8 5v14l11-7z"/></svg>',
-  bigpause: '<svg viewBox="0 0 24 24" width="46" height="46"><path fill="currentColor" d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>',
-  back10: '<svg viewBox="0 0 24 24" width="28" height="28"><path fill="currentColor" d="M12 5V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z"/></svg>',
-  fwd10: '<svg viewBox="0 0 24 24" width="28" height="28"><path fill="currentColor" d="M12 5V1l5 5-5 5V7a6 6 0 1 0 6 6h2a8 8 0 1 1-8-8z"/></svg>',
-  vol: '<svg viewBox="0 0 24 24" width="28" height="28"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z"/></svg>',
-  mute: '<svg viewBox="0 0 24 24" width="28" height="28"><path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3zm13 .5L14.5 11 16 12.5 14.5 14 16 15.5 17.5 14 19 15.5 20.5 14 19 12.5 20.5 11 19 9.5 17.5 11z"/></svg>',
-  full: '<svg viewBox="0 0 24 24" width="28" height="28"><path fill="currentColor" d="M7 14H5v5h5v-2H7zm-2-4h2V7h3V5H5zm12 7h-3v2h5v-5h-2zM14 5v2h3v3h2V5z"/></svg>',
-  cc: '<svg viewBox="0 0 24 24" width="28" height="28"><path fill="currentColor" d="M19 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM9 11H7.5v-.5h-2v3h2V13H9v1a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1zm7 0h-1.5v-.5h-2v3h2V13H16v1a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1z"/></svg>',
+  play: (w) => S(w, "M8 5v14l11-7z"),
+  pause: (w) => S(w, "M6 5h4v14H6zm8 0h4v14h-4z"),
+  back10: (w) => S(w, "M12 5V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z"),
+  fwd10: (w) => S(w, "M12 5V1l5 5-5 5V7a6 6 0 1 0 6 6h2a8 8 0 1 1-8-8z"),
+  vol: (w) => S(w, "M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z"),
+  mute: (w) => S(w, "M3 9v6h4l5 5V4L7 9H3zm13 .5L14.5 11 16 12.5 14.5 14 16 15.5 17.5 14 19 15.5 20.5 14 19 12.5 20.5 11 19 9.5 17.5 11z"),
+  full: (w) => S(w, "M7 14H5v5h5v-2H7zm-2-4h2V7h3V5H5zm12 7h-3v2h5v-5h-2zM14 5v2h3v3h2V5z"),
+  cc: (w) => S(w, "M19 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zM11 10H6v4h5v-1.5H7.5v-1H11zm7 0h-5v4h5v-1.5h-3.5v-1H18z"),
 };
-
-function icon(name, label) {
-  return SVG[name] || label || "";
-}
 
 export const WebPlayerControls = {
   started: false,
   root: null,
+  uiRoot: null,
+  video: null,
   els: {},
   hideTimer: null,
   rafBound: null,
@@ -48,7 +44,6 @@ export const WebPlayerControls = {
     if (this.started || !isBrowserRuntime()) return;
     this.started = true;
     this.injectStyles();
-    // Watch for the player mounting/unmounting.
     setInterval(() => this.tick(), 500);
   },
 
@@ -57,7 +52,7 @@ export const WebPlayerControls = {
     const uiRoot = document.getElementById("playerUiRoot");
     if (video && uiRoot) {
       if (!this.root || !uiRoot.contains(this.root)) this.mount(uiRoot, video);
-      // Keep native controls hidden while ours is active.
+      this.video = video;
       uiRoot.classList.add("webplayer-active");
     } else if (this.root) {
       this.unmount();
@@ -71,12 +66,12 @@ export const WebPlayerControls = {
 
   mount(uiRoot, video) {
     this.unmount();
+    this.uiRoot = uiRoot;
     this.video = video;
     const root = document.createElement("div");
     root.id = "webplayer-controls";
     root.innerHTML = `
-      <div class="wp-tap"></div>
-      <button class="wp-center" id="wpCenter" title="Play/Pause">${icon("bigplay")}</button>
+      <button class="wp-center" id="wpCenter" title="Play/Pause">${SVG.play(52)}</button>
       <div class="wp-bar">
         <div class="wp-seek" id="wpSeek">
           <div class="wp-seek-track">
@@ -86,22 +81,22 @@ export const WebPlayerControls = {
           <div class="wp-thumb" id="wpThumb"></div>
         </div>
         <div class="wp-row">
-          <button class="wp-btn" data-wp="playPause" id="wpPlay" title="Play/Pause">${icon("play")}</button>
-          <button class="wp-btn" data-wp="rewind" title="Back 10s">${icon("back10")}</button>
-          <button class="wp-btn" data-wp="forward" title="Forward 10s">${icon("fwd10")}</button>
+          <button class="wp-btn" data-wp="playPause" id="wpPlay" title="Play/Pause">${SVG.play(32)}</button>
+          <button class="wp-btn" data-wp="rewind" title="Back 10s">${SVG.back10(30)}</button>
+          <button class="wp-btn" data-wp="forward" title="Forward 10s">${SVG.fwd10(30)}</button>
           <div class="wp-vol">
-            <button class="wp-btn" data-wp="mute" id="wpMute" title="Mute">${icon("vol")}</button>
+            <button class="wp-btn" data-wp="mute" id="wpMute" title="Mute">${SVG.vol(30)}</button>
             <input type="range" id="wpVol" class="wp-vol-range" min="0" max="1" step="0.01" value="1">
           </div>
           <div class="wp-time" id="wpTime">0:00 / 0:00</div>
           <div class="wp-spacer"></div>
           <button class="wp-btn wp-txt" data-wp="party" title="Watch party">Party</button>
-          <button class="wp-btn" data-wp="subtitleDialog" title="Subtitles">${icon("cc")}</button>
+          <button class="wp-btn" data-wp="subtitleDialog" title="Subtitles">${SVG.cc(30)}</button>
           <button class="wp-btn wp-txt" data-wp="audioTrack" title="Audio">Audio</button>
           <button class="wp-btn wp-txt" data-wp="source" title="Sources">Sources</button>
           <button class="wp-btn wp-txt" data-wp="speed" title="Speed">Speed</button>
           <button class="wp-btn wp-txt" data-wp="episodes" title="Episodes">Episodes</button>
-          <button class="wp-btn" data-wp="fullscreen" id="wpFull" title="Fullscreen">${icon("full")}</button>
+          <button class="wp-btn" data-wp="fullscreen" id="wpFull" title="Fullscreen">${SVG.full(30)}</button>
         </div>
       </div>`;
     uiRoot.appendChild(root);
@@ -115,7 +110,6 @@ export const WebPlayerControls = {
       time: root.querySelector("#wpTime"),
       mute: root.querySelector("#wpMute"),
       vol: root.querySelector("#wpVol"),
-      tap: root.querySelector(".wp-tap"),
       center: root.querySelector("#wpCenter"),
     };
     this.bind();
@@ -128,32 +122,36 @@ export const WebPlayerControls = {
       cancelAnimationFrame(this.rafBound);
       this.rafBound = null;
     }
-    document.getElementById("playerUiRoot")?.classList.remove("webplayer-active");
+    this.uiRoot?.classList.remove("webplayer-active");
     if (this.root && this.root.parentNode) this.root.parentNode.removeChild(this.root);
     this.root = null;
-    this.video = null;
   },
 
   bind() {
     const r = this.root;
-    // Button actions
     r.querySelectorAll("[data-wp]").forEach((btn) => {
       btn.addEventListener("click", (e) => {
+        e.preventDefault();
         e.stopPropagation();
         this.onAction(btn.getAttribute("data-wp"));
         this.reveal();
       });
     });
+    this.els.center.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.togglePlay();
+      this.reveal();
+    });
+
     // Seek (click + drag)
     let dragging = false;
     const seekTo = (clientX) => {
       const rect = this.els.seek.getBoundingClientRect();
       const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
       const dur = this.duration();
-      if (dur > 0) {
-        const screen = this.screen();
-        if (screen?.seekPlaybackSeconds) screen.seekPlaybackSeconds(dur * ratio);
-        else if (this.video) this.video.currentTime = dur * ratio;
+      if (dur > 0 && this.video) {
+        this.video.currentTime = dur * ratio;
         this.setPlayed(ratio);
       }
     };
@@ -168,7 +166,6 @@ export const WebPlayerControls = {
     });
     this.els.seek.addEventListener("pointermove", (e) => {
       if (dragging) seekTo(e.clientX);
-      this.reveal();
     });
     const endDrag = (e) => {
       if (!dragging) return;
@@ -180,7 +177,6 @@ export const WebPlayerControls = {
     this.els.seek.addEventListener("pointerup", endDrag);
     this.els.seek.addEventListener("pointercancel", endDrag);
 
-    // Volume
     this.els.vol.addEventListener("input", () => {
       if (!this.video) return;
       this.video.volume = Number(this.els.vol.value);
@@ -188,44 +184,38 @@ export const WebPlayerControls = {
       this.updateVolIcon();
     });
 
-    // Tap video area: toggle play/pause. Mouse move: reveal controls.
-    this.els.tap.addEventListener("click", (e) => {
-      e.stopPropagation();
-      this.onAction("playPause");
-      this.reveal();
+    // Reveal on movement over the player; click on the video toggles play.
+    this.uiRoot.addEventListener("mousemove", () => this.reveal());
+    this.uiRoot.addEventListener("click", (e) => {
+      if (e.target === this.video) {
+        this.togglePlay();
+        this.reveal();
+      }
     });
-    this.els.tap.addEventListener("dblclick", () => this.onAction("fullscreen"));
-    this.els.center.addEventListener("click", (e) => {
-      e.stopPropagation();
-      this.onAction("playPause");
-      this.reveal();
-    });
-    this.root.addEventListener("mousemove", () => this.reveal());
+  },
+
+  togglePlay() {
+    const v = this.video;
+    if (!v) return;
+    if (v.paused || v.ended) v.play().catch(() => {});
+    else v.pause();
   },
 
   onAction(action) {
-    const screen = this.screen();
-    const video = this.video;
-    if (action === "fullscreen") {
-      this.toggleFullscreen();
-      return;
-    }
+    const v = this.video;
+    if (action === "playPause") return this.togglePlay();
+    if (action === "fullscreen") return this.toggleFullscreen();
     if (action === "mute") {
-      if (video) {
-        video.muted = !video.muted;
-        this.els.vol.value = video.muted ? 0 : video.volume || 1;
+      if (v) {
+        v.muted = !v.muted;
+        this.els.vol.value = v.muted ? 0 : v.volume || 1;
         this.updateVolIcon();
       }
       return;
     }
-    if (action === "rewind") {
-      if (video) this.seekRelative(-10);
-      return;
-    }
-    if (action === "forward") {
-      if (video) this.seekRelative(10);
-      return;
-    }
+    if (action === "rewind") return this.seekRelative(-10);
+    if (action === "forward") return this.seekRelative(10);
+    const screen = this.screen();
     if (screen) {
       try {
         screen.performControlAction(action);
@@ -236,16 +226,14 @@ export const WebPlayerControls = {
   },
 
   seekRelative(delta) {
-    const screen = this.screen();
-    const cur = this.video ? this.video.currentTime : 0;
+    if (!this.video) return;
     const dur = this.duration();
-    const target = Math.max(0, Math.min(dur || cur + delta, cur + delta));
-    if (screen?.seekPlaybackSeconds) screen.seekPlaybackSeconds(target);
-    else if (this.video) this.video.currentTime = target;
+    const target = Math.max(0, Math.min(dur || this.video.currentTime + delta, this.video.currentTime + delta));
+    this.video.currentTime = target;
   },
 
   toggleFullscreen() {
-    const el = document.getElementById("playerUiRoot") || document.documentElement;
+    const el = this.uiRoot || document.getElementById("playerUiRoot") || document.documentElement;
     try {
       if (document.fullscreenElement) document.exitFullscreen();
       else el.requestFullscreen?.();
@@ -253,13 +241,14 @@ export const WebPlayerControls = {
   },
 
   duration() {
+    const vd = this.video?.duration;
+    if (Number.isFinite(vd) && vd > 0) return vd;
     const screen = this.screen();
     if (screen?.getPlaybackDurationSeconds) {
       const d = screen.getPlaybackDurationSeconds();
       if (Number.isFinite(d) && d > 0) return d;
     }
-    const vd = this.video?.duration;
-    return Number.isFinite(vd) && vd > 0 ? vd : 0;
+    return 0;
   },
 
   setPlayed(ratio) {
@@ -290,17 +279,17 @@ export const WebPlayerControls = {
     } catch (_) {}
     this.els.time.textContent = fmt(cur) + " / " + (dur ? fmt(dur) : "0:00");
     const playing = !v.paused && !v.ended;
-    this.els.play.innerHTML = playing ? icon("pause") : icon("play");
+    this.els.play.innerHTML = playing ? SVG.pause(32) : SVG.play(32);
     if (this.els.center) {
-      this.els.center.innerHTML = playing ? icon("bigpause") : icon("bigplay");
-      this.els.center.style.opacity = playing ? "0" : "1";
+      this.els.center.innerHTML = playing ? SVG.pause(52) : SVG.play(52);
+      this.els.center.classList.toggle("hidden", playing);
     }
   },
 
   updateVolIcon() {
     if (!this.video || !this.els.mute) return;
     const muted = this.video.muted || this.video.volume === 0;
-    this.els.mute.innerHTML = muted ? icon("mute") : icon("vol");
+    this.els.mute.innerHTML = muted ? SVG.mute(30) : SVG.vol(30);
   },
 
   reveal() {
@@ -308,41 +297,38 @@ export const WebPlayerControls = {
     this.root.classList.add("show");
     if (this.hideTimer) clearTimeout(this.hideTimer);
     this.hideTimer = setTimeout(() => {
-      // Don't hide while paused.
       if (this.video && this.video.paused) return;
       this.root?.classList.remove("show");
-    }, 3200);
+    }, 3500);
   },
 
   injectStyles() {
     if (document.getElementById("webplayer-styles")) return;
     const css = `
 .webplayer-active #playerControlsOverlay{display:none!important}
-#webplayer-controls{position:absolute;inset:0;z-index:40;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;pointer-events:none}
-#webplayer-controls .wp-tap{position:absolute;inset:0;pointer-events:auto;cursor:pointer}
-#webplayer-controls .wp-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:84px;height:84px;border:0;border-radius:50%;background:rgba(0,0,0,.5);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity .18s,transform .12s;pointer-events:none}
-#webplayer-controls.show .wp-center{pointer-events:auto}
-#webplayer-controls .wp-center:hover{transform:translate(-50%,-50%) scale(1.06);background:rgba(0,0,0,.65)}
-#webplayer-controls .wp-bar{position:absolute;left:0;right:0;bottom:0;padding:22px 30px 22px;background:linear-gradient(to top,rgba(0,0,0,.9),rgba(0,0,0,.5) 55%,transparent);opacity:0;transform:translateY(10px);transition:opacity .18s,transform .18s;pointer-events:none}
+#webplayer-controls{position:absolute;inset:0;z-index:60;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;pointer-events:none}
+#webplayer-controls .wp-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:96px;height:96px;border:0;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity .18s;pointer-events:none}
+#webplayer-controls.show .wp-center:not(.hidden){opacity:1;pointer-events:auto}
+#webplayer-controls .wp-center:hover{background:rgba(0,0,0,.7)}
+#webplayer-controls .wp-bar{position:absolute;left:0;right:0;bottom:0;padding:24px 34px 24px;background:linear-gradient(to top,rgba(0,0,0,.92),rgba(0,0,0,.5) 55%,transparent);opacity:0;transform:translateY(12px);transition:opacity .2s,transform .2s;pointer-events:none}
 #webplayer-controls.show .wp-bar{opacity:1;transform:none;pointer-events:auto}
-#webplayer-controls.show .wp-tap{cursor:default}
-#webplayer-controls .wp-seek{position:relative;height:26px;display:flex;align-items:center;cursor:pointer;margin-bottom:10px}
-#webplayer-controls .wp-seek-track{position:relative;width:100%;height:7px;border-radius:4px;background:rgba(255,255,255,.3);overflow:hidden}
-#webplayer-controls .wp-seek:hover .wp-seek-track{height:10px}
+#webplayer-controls .wp-seek{position:relative;height:30px;display:flex;align-items:center;cursor:pointer;margin-bottom:12px}
+#webplayer-controls .wp-seek-track{position:relative;width:100%;height:8px;border-radius:5px;background:rgba(255,255,255,.3);overflow:hidden}
+#webplayer-controls .wp-seek:hover .wp-seek-track{height:12px}
 #webplayer-controls .wp-buffered{position:absolute;left:0;top:0;bottom:0;background:rgba(255,255,255,.45);width:0}
 #webplayer-controls .wp-played{position:absolute;left:0;top:0;bottom:0;background:#3dd68c;width:0}
-#webplayer-controls .wp-thumb{position:absolute;top:50%;left:0;width:18px;height:18px;border-radius:50%;background:#3dd68c;transform:translate(-50%,-50%);box-shadow:0 1px 5px rgba(0,0,0,.6);opacity:0;transition:opacity .15s}
+#webplayer-controls .wp-thumb{position:absolute;top:50%;left:0;width:22px;height:22px;border-radius:50%;background:#3dd68c;transform:translate(-50%,-50%);box-shadow:0 1px 6px rgba(0,0,0,.6);opacity:0;transition:opacity .15s}
 #webplayer-controls .wp-seek:hover .wp-thumb{opacity:1}
-#webplayer-controls .wp-row{display:flex;align-items:center;gap:10px}
-#webplayer-controls .wp-btn{display:flex;align-items:center;justify-content:center;min-width:52px;height:52px;padding:0 14px;border:0;border-radius:11px;background:transparent;color:#fff;cursor:pointer;font-size:16px;font-weight:600;line-height:1}
-#webplayer-controls .wp-btn:hover{background:rgba(255,255,255,.18)}
-#webplayer-controls .wp-txt{letter-spacing:.01em;font-size:16px}
-#webplayer-controls .wp-time{color:#fff;font-size:16px;margin:0 10px;white-space:nowrap;font-variant-numeric:tabular-nums}
+#webplayer-controls .wp-row{display:flex;align-items:center;gap:12px}
+#webplayer-controls .wp-btn{display:flex;align-items:center;justify-content:center;min-width:60px;height:60px;padding:0 16px;border:0;border-radius:12px;background:transparent;color:#fff;cursor:pointer;font-size:18px;font-weight:600;line-height:1}
+#webplayer-controls .wp-btn:hover{background:rgba(255,255,255,.2)}
+#webplayer-controls .wp-txt{letter-spacing:.01em;font-size:18px}
+#webplayer-controls .wp-time{color:#fff;font-size:18px;margin:0 12px;white-space:nowrap;font-variant-numeric:tabular-nums}
 #webplayer-controls .wp-spacer{flex:1}
 #webplayer-controls .wp-vol{display:flex;align-items:center}
-#webplayer-controls .wp-vol-range{width:0;opacity:0;transition:width .18s,opacity .18s;accent-color:#3dd68c;cursor:pointer;height:6px}
-#webplayer-controls .wp-vol:hover .wp-vol-range{width:100px;opacity:1;margin-left:4px}
-@media(max-width:760px){#webplayer-controls .wp-txt{display:none}#webplayer-controls .wp-bar{padding:16px 16px 18px}}`;
+#webplayer-controls .wp-vol-range{width:0;opacity:0;transition:width .2s,opacity .2s;accent-color:#3dd68c;cursor:pointer;height:7px}
+#webplayer-controls .wp-vol:hover .wp-vol-range{width:120px;opacity:1;margin-left:6px}
+@media(max-width:820px){#webplayer-controls .wp-txt{display:none}#webplayer-controls .wp-bar{padding:18px 18px 20px}#webplayer-controls .wp-btn{min-width:52px;height:52px}}`;
     const style = document.createElement("style");
     style.id = "webplayer-styles";
     style.textContent = css;
