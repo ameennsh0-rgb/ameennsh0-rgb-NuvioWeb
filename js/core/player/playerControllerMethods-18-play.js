@@ -23,6 +23,14 @@ function isStreamRelayUrl(u) {
   return typeof u === "string" && base && u.indexOf(base) === 0;
 }
 
+function isSameOriginUrl(u) {
+  try {
+    return typeof location !== "undefined" && new URL(u, location.href).origin === location.origin;
+  } catch (_) {
+    return false;
+  }
+}
+
 function wrapWithStreamRelay(u, headers) {
   if (!u || isStreamRelayUrl(u) || !/^https?:\/\//i.test(u)) return u;
   let q = STREAM_RELAY_URL + (STREAM_RELAY_URL.indexOf("?") >= 0 ? "&" : "?") + "url=" + encodeURIComponent(u);
@@ -148,7 +156,8 @@ export function createPlayerControllerMethods18() {
       if (
         Platform.isBrowser() &&
         !isStreamRelayUrl(requestedUrl) &&
-        /^https?:\/\//i.test(requestedUrl)
+        /^https?:\/\//i.test(requestedUrl) &&
+        !isSameOriginUrl(requestedUrl)
       ) {
         playbackUrl = wrapWithStreamRelay(requestedUrl, requestHeaders);
         this.currentPlaybackUrl = playbackUrl;

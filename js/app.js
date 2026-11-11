@@ -439,10 +439,66 @@ async function enterWithLastProfile({ restoreWebOsRoute = false } = {}) {
       ...(isHomeResumeRoute ? resumeRoute.params || {} : {}),
       ...(StartupSyncService.started ? { forceReload: true } : {})
     });
-    // Web only: if the user was watching when the page was refreshed, reopen the
-    // stream screen for that title (over Home, so Back works). "Reuse last link"
-    // then auto-resumes the same stream at its saved position — no re-selecting.
-    if (!hasPendingLaunchDeepLink()) restoreWebPlaybackAfterRefresh();
+    // Demo mode (?demo=1): drop straight into the player with a bundled blank
+    // test video, so controls can be checked without any addon/stream/backend.
+    if (maybeOpenDemoPlayer()) {
+      // demo player opened; skip the refresh-resume restore
+    } else if (!hasPendingLaunchDeepLink()) {
+      // Web only: if the user was watching when the page was refreshed, reopen
+      // the stream screen for that title (over Home, so Back works). "Reuse last
+      // link" then auto-resumes the same stream at its saved position.
+      restoreWebPlaybackAfterRefresh();
+    }
+  }
+}
+
+function openDemoPlayer() {
+  if (globalThis.__demoPlayerOpened) return true;
+  globalThis.__demoPlayerOpened = true;
+  void Router.navigate("player", {
+    streamUrl: new URL("assets/demo/demo.webm", location.href).href,
+    itemId: "demo-control-test",
+    itemType: "movie",
+    playerTitle: "Demo — control test",
+    playerSubtitle: "Bundled blank test stream",
+    playerReleaseYear: "",
+    startFromBeginning: true,
+    resumePositionMs: 0
+  });
+  return true;
+}
+
+function maybeOpenDemoPlayer() {
+  try {
+    const params = new URLSearchParams((typeof location !== "undefined" && location.search) || "");
+    if (!params.has("demo") || globalThis.__demoPlayerOpened) return false;
+    return openDemoPlayer();
+  } catch (_) {
+    return false;
+  }
+}
+
+// Robust demo trigger: once the app settles on Home (whatever the auth path),
+// drop into the player with the bundled test video. Works regardless of which
+// code path reached Home.
+function startDemoPlayerWatcher() {
+  try {
+    const params = new URLSearchParams((typeof location !== "undefined" && location.search) || "");
+    if (!params.has("demo")) return;
+    let tries = 0;
+    const timer = setInterval(() => {
+      tries += 1;
+      if (globalThis.__demoPlayerOpened || tries > 240) {
+        clearInterval(timer);
+        return;
+      }
+      if (Router.getCurrent?.() === "home") {
+        clearInterval(timer);
+        openDemoPlayer();
+      }
+    }, 500);
+  } catch (error) {
+    console.warn("Demo watcher failed", error);
   }
 }
 
@@ -761,6 +817,7 @@ async function bootstrapApp() {
   AmbientMode.start();
   FocusEngine.init();
   PartyCallOverlay.init();
+  startDemoPlayerWatcher();
   setupProviderCredentialForegroundLifecycle();
   setupTizenPlaybackLifecycle();
   setupTizenAppControlLifecycle();
