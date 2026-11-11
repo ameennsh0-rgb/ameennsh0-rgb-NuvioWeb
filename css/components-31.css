@@ -81,6 +81,21 @@
   cursor: pointer;
 }
 
+/* The controls overlay (and #playerUiRoot) are pointer-events:none, and that
+   inherits into every dialog/panel, so their inner buttons were only reachable
+   with a TV remote. Re-enable pointer/touch on each interactive overlay while it
+   is open (:not(.hidden) keeps a closed overlay from blocking the video). */
+.player-modal:not(.hidden),
+.player-modal-backdrop:not(.hidden),
+.player-sources-panel:not(.hidden),
+.player-episode-panel:not(.hidden),
+.player-party-panel:not(.hidden),
+.player-party-scrim:not(.hidden),
+.player-skip-intro:not(.hidden),
+.player-next-episode-card:not(.hidden) {
+  pointer-events: auto;
+}
+
 .player-progress-track {
   position: relative;
   width: 100%;

@@ -5,7 +5,12 @@ export function createPlayerScreenMethods70() {
   const { PlayerController, Router, t } = internals;
 
   return {
-    async onPointerActivate(target, event) {
+    // NOTE: must stay synchronous and return a real boolean. The focus engine
+    // treats any returned thenable as "handled" and calls stopImmediatePropagation,
+    // which would swallow native clicks (e.g. the video-call button) and delegated
+    // click listeners (e.g. the watch-party panel). Async actions are fired with
+    // `void` so this still returns true/false immediately.
+    onPointerActivate(target, event) {
       if (!target || this.isExternalFrameMode()) {
         return false;
       }
@@ -37,12 +42,12 @@ export function createPlayerScreenMethods70() {
       }
 
       if (target.closest?.("[data-player-pointer-action='nextEpisode']")) {
-        await this.playNextEpisode({ userInitiated: true });
+        void this.playNextEpisode({ userInitiated: true });
         return true;
       }
 
       if (target.closest?.("[data-player-pointer-action='stillWatchingContinue']")) {
-        await this.onStillWatchingContinue();
+        void this.onStillWatchingContinue();
         return true;
       }
 
@@ -64,7 +69,7 @@ export function createPlayerScreenMethods70() {
 
       const sourcesNode = target.closest?.("[data-sources-zone]");
       if (sourcesNode && this.sourcesPanelVisible) {
-        await this.activateSourcesFocus();
+        void this.activateSourcesFocus();
         return true;
       }
 
@@ -138,19 +143,19 @@ export function createPlayerScreenMethods70() {
 
       const episodeStreamAction = target.closest?.("[data-episode-stream-action]");
       if (episodeStreamAction && this.episodePanelVisible) {
-        await this.activateEpisodeStreamFocus();
+        void this.activateEpisodeStreamFocus();
         return true;
       }
 
       const episodeStreamFilter = target.closest?.("[data-episode-stream-filter-index]");
       if (episodeStreamFilter && this.episodePanelVisible) {
-        await this.activateEpisodeStreamFocus();
+        void this.activateEpisodeStreamFocus();
         return true;
       }
 
       const episodeStreamNode = target.closest?.("[data-episode-stream-index]");
       if (episodeStreamNode && this.episodePanelVisible) {
-        await this.activateEpisodeStreamFocus();
+        void this.activateEpisodeStreamFocus();
         return true;
       }
 
@@ -163,7 +168,7 @@ export function createPlayerScreenMethods70() {
 
       const episodeNode = target.closest?.("[data-episode-index]");
       if (episodeNode && this.episodePanelVisible) {
-        await this.playEpisodeFromPanel();
+        void this.playEpisodeFromPanel();
         return true;
       }
 
