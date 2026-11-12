@@ -83,7 +83,11 @@ export function createAuthQrSignInScreenMethods03() {
       this.emailError = "";
       this.render();
       try {
-        await AuthManager.signInWithEmail(email, password);
+        if (this.emailMode === "signup") {
+          await AuthManager.signUpWithEmail(email, password);
+        } else {
+          await AuthManager.signInWithEmail(email, password);
+        }
         LocalStore.remove(GUEST_QR_BYPASS_KEY);
         LocalStore.set("hasSeenAuthQrOnFirstLaunch", true);
         this.isSignedIn = true;

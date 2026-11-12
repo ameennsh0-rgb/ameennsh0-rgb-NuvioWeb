@@ -245,6 +245,40 @@ class AuthManagerClass {
     this.setState(AuthState.AUTHENTICATED);
   }
 
+  async signUpWithEmail(email, password) {
+    const generation = this.sessionGeneration;
+    const key = publishableKey();
+    const res = await fetchSupabaseAuth("/auth/v1/signup", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: key
+      },
+      body: JSON.stringify({ email, password }),
+      signal: this.getSessionSignal()
+    });
+
+    if (!res.ok) {
+      throw new Error(await parseResponseError(res, "Sign up failed"));
+    }
+
+    const data = await res.json();
+    if (generation !== this.sessionGeneration) {
+      throw new Error("Sign up was cancelled because the server changed");
+    }
+    // When the backend auto-confirms (no email verification), signup returns a
+    // usable session straight away. Otherwise there's no session to use yet.
+    if (!data?.access_token || !data?.refresh_token) {
+      throw new Error("Account created. Check your email to confirm it, then sign in.");
+    }
+
+    SessionStore.accessToken = data.access_token;
+    SessionStore.refreshToken = data.refresh_token;
+    SessionStore.isAnonymousSession = false;
+
+    this.setState(AuthState.AUTHENTICATED);
+  }
+
   async signOut() {
     return this._teardownAccountSession({ serverSwitch: false, verify: false });
   }

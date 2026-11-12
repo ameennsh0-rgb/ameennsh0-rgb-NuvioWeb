@@ -64,6 +64,7 @@ export function createAuthQrSignInScreenMethods01() {
       // explicitly when the server supports both authentication methods.
       this.useEmailLogin = this.supportsEmailAuth;
       this.useQrLogin = this.supportsQrAuth && !this.useEmailLogin;
+      if (this.emailMode !== "signup" && this.emailMode !== "signin") this.emailMode = "signin";
       ScreenUtils.show(this.container);
       this.render();
 
@@ -113,7 +114,7 @@ export function createAuthQrSignInScreenMethods01() {
               </div>
 
               <div class="qr-copy-block">
-                <h1 class="qr-title">${I18n.t("auth.qr.title")}</h1>
+                <h1 class="qr-title">${!this.isSignedIn && this.useEmailLogin ? "Sign In With Email" : I18n.t("auth.qr.title")}</h1>
                 <p id="qr-description" class="qr-description">${this.getLeftDescription()}</p>
                 ${this.renderConnectedAccountIdentity()}
               </div>
@@ -131,7 +132,7 @@ export function createAuthQrSignInScreenMethods01() {
                     this.isSignedIn
                       ? I18n.t("auth.qr.syncedData")
                       : this.useEmailLogin
-                        ? I18n.t("auth.email.instruction")
+                        ? ""
                         : I18n.t("auth.qr.scanInstruction")
                   }
                 </p>
@@ -182,7 +183,19 @@ export function createAuthQrSignInScreenMethods01() {
                      value="${escapeHtml(this.password)}" />
               <button type="button" id="auth-email-submit" class="qr-action-btn qr-action-btn-primary focusable"
                       data-action="email-submit" ${this.isEmailSubmitting ? "disabled" : ""}>
-                ${escapeHtml(I18n.t(this.isEmailSubmitting ? "auth.email.signingIn" : "auth.email.signIn"))}
+                ${escapeHtml(
+                  this.isEmailSubmitting
+                    ? this.emailMode === "signup"
+                      ? "Creating account…"
+                      : I18n.t("auth.email.signingIn")
+                    : this.emailMode === "signup"
+                      ? "Create account"
+                      : I18n.t("auth.email.signIn")
+                )}
+              </button>
+              <button type="button" id="auth-email-toggle" class="qr-action-btn qr-action-btn-secondary focusable"
+                      data-action="email-toggle" ${this.isEmailSubmitting ? "disabled" : ""}>
+                ${escapeHtml(this.emailMode === "signup" ? "Have an account? Sign in" : "New here? Create an account")}
               </button>
               ${this.emailError ? `<p class="qr-login-error" role="alert">${escapeHtml(this.emailError)}</p>` : ""}
             </form>

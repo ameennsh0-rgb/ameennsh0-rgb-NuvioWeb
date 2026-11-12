@@ -39,6 +39,7 @@ export function createAuthQrSignInScreenMethods02() {
       this.container.querySelector("[data-action='login-qr']")?.addEventListener("click", () => this.toggleLoginMode(false));
       this.container.querySelector("[data-action='login-email']")?.addEventListener("click", () => this.toggleLoginMode(true));
       this.container.querySelector("[data-action='email-submit']")?.addEventListener("click", () => void this.submitEmailLogin());
+      this.container.querySelector("[data-action='email-toggle']")?.addEventListener("click", () => this.toggleEmailMode());
       this.container.querySelector("[data-action='cancel-signout']")?.addEventListener("click", () => this.dismissSignOutConfirmation());
       this.container.querySelector("[data-action='confirm-signout']")?.addEventListener("click", () => void this.handleSignOut());
       this.container.querySelector("[data-action='terms']")?.addEventListener("click", () => {
@@ -114,6 +115,13 @@ export function createAuthQrSignInScreenMethods02() {
           }
         });
       }
+    },
+    toggleEmailMode() {
+      // Switch the email form between "sign in" and "create account".
+      if (!this.isMounted || this.isLeaving || this.isSignedIn || this.isEmailSubmitting) return;
+      this.emailMode = this.emailMode === "signup" ? "signin" : "signup";
+      this.emailError = "";
+      this.render();
     },
     openSignOutConfirmation() {
       if (this.isLeaving || !this.isSignedIn) return;
