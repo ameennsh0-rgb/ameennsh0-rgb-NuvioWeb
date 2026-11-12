@@ -27,3 +27,20 @@ export function proxifyAddonUrl(url) {
     return original;
   }
 }
+
+// Try the addon directly from the browser first. Many addons (Torrentio,
+// MediaFusion, ...) allow cross-origin requests but refuse traffic that comes
+// from Cloudflare's servers, so going through the proxy gets them blocked. If
+// the direct request fails before the addon answers (blocked by CORS, network
+// error), fall back to the same-origin proxy.
+export async function requestAddonWithFallback(request, url, options = {}) {
+  const proxied = proxifyAddonUrl(url);
+  if (proxied === url) return request(url, options);
+  try {
+    return await request(url, options);
+  } catch (error) {
+    const aborted = error?.name === "AbortError" || options?.signal?.aborted;
+    if (aborted || Number(error?.status || 0) > 0) throw error;
+    return request(proxied, options);
+  }
+}
