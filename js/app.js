@@ -13,6 +13,7 @@ import { detailWatchedEnrichmentService } from "./data/repository/detailWatchedE
 import { NON_BACKSTACK_ROUTES, Router } from "./ui/navigation/router.js";
 import { FocusEngine } from "./ui/navigation/focusEngine.js";
 import { PartyCallOverlay } from "./core/party/partyCallOverlay.js";
+import { installLocalAudioHelper } from "./core/player/localAudioHelper.js";
 import { PlayerController } from "./core/player/playerController.js";
 import { AuthManager } from "./core/auth/authManager.js";
 import { AuthState } from "./core/auth/authState.js";
@@ -823,6 +824,7 @@ async function bootstrapApp() {
   PlayerController.init();
 
   installCustomPosterFallback();
+  installLocalAudioHelper();
   preloadMaterialIconFont();
   installWebOsImgurImageFallback();
   MediaServerSyncService.start();
