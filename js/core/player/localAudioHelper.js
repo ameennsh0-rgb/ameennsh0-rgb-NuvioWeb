@@ -77,9 +77,9 @@ function teardown(video) {
   }
 }
 
-async function engage(video, src, startAt) {
+async function engage(video, src, startAt, mode = "copy") {
   const t = Math.max(0, Math.floor(startAt));
-  const res = await fetch(`${HELPER}/start?url=${encodeURIComponent(src)}&t=${t}`, { signal: AbortSignal.timeout(40000) });
+  const res = await fetch(`${HELPER}/start?url=${encodeURIComponent(src)}&t=${t}&v=${mode}`, { signal: AbortSignal.timeout(40000) });
   const body = await res.json().catch(() => ({}));
   if (!res.ok || !body.playlist) {
     throw new Error(body.detail || body.error || "helper failed");
@@ -91,7 +91,7 @@ async function engage(video, src, startAt) {
   }
   teardown(video);
   const hls = new Hls({ enableWorker: true, startPosition: t, lowLatencyMode: false });
-  active = { hls, src, blob: null };
+  active = { hls, src, blob: null, mode };
   video.dataset.nuvioAudioHelper = "1";
   const resume = !video.paused;
   hls.attachMedia(video);
@@ -103,8 +103,18 @@ async function engage(video, src, startAt) {
   });
   hls.on(Hls.Events.ERROR, (_e, data) => {
     if (data && data.fatal) {
-      toast("Audio helper stream stopped. Restart the helper and reopen the movie.");
+      const failedMode = active && active.mode;
+      const here = video.currentTime || t;
       teardown(video);
+      if (failedMode === "copy") {
+        // The browser could not show the copied picture: re-encode it instead.
+        toast("Switching to full conversion for this movie...");
+        engage(video, src, here, "h264")
+          .then(() => video.play().catch(() => {}))
+          .catch((error) => toast("Audio helper could not convert this movie: " + String((error && error.message) || error).slice(0, 120)));
+      } else {
+        toast("Audio helper stream stopped. Reopen the movie to try again.");
+      }
     }
   });
 }
@@ -130,7 +140,12 @@ async function checkSilent(video) {
   }
   toast("Converting audio for this movie...");
   try {
-    await engage(video, src, video.currentTime);
+    try {
+      await engage(video, src, video.currentTime, "copy");
+    } catch (first) {
+      console.warn("Audio helper (copy) failed, trying full conversion", first);
+      await engage(video, src, video.currentTime, "h264");
+    }
   } catch (error) {
     console.warn("Audio helper failed", error);
     toast("Audio helper could not convert this movie: " + String((error && error.message) || error).slice(0, 120));
@@ -154,7 +169,12 @@ async function rescueStuck(video, src) {
   }
   toast("This movie can't start in the browser. Converting it with the audio helper...");
   try {
-    await engage(video, src, 0);
+    try {
+      await engage(video, src, 0, "copy");
+    } catch (first) {
+      console.warn("Audio helper (copy) failed, trying full conversion", first);
+      await engage(video, src, 0, "h264");
+    }
     video.play().catch(() => {});
   } catch (error) {
     console.warn("Audio helper could not rescue this movie", error);
@@ -248,7 +268,7 @@ export function installLocalAudioHelper() {
       const target = video.currentTime;
       if (target < first - 0.5 || target > edge + 30) {
         const src = active.src;
-        engage(video, src, target).catch((error) => {
+        engage(video, src, target, active.mode).catch((error) => {
           console.warn("Audio helper seek restart failed", error);
           toast("Audio helper could not jump there.");
         });
