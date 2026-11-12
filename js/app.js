@@ -465,6 +465,18 @@ function openDemoPlayer() {
     startFromBeginning: true,
     resumePositionMs: 0
   });
+  // Demo also surfaces the watch-party call bubble (solo, no second person) so
+  // the camera/mic permission prompt and call controls can be tested here.
+  try {
+    PartyCallOverlay.onParty({
+      id: "demo-call-" + Math.random().toString(36).slice(2, 8),
+      memberId: "demo-me",
+      displayName: "You",
+      members: []
+    });
+  } catch (error) {
+    console.warn("Demo call bubble failed", error);
+  }
   return true;
 }
 
