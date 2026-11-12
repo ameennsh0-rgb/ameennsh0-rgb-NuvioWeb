@@ -134,23 +134,39 @@ export const PartyCallOverlay = {
       { audio: true },
       { video: { width: 640, height: 480 } },
     ];
+    const isPermissionError = (e) =>
+      e && (e.name === "NotAllowedError" || e.name === "SecurityError" || e.name === "PermissionDeniedError");
     let lastErr = null;
     this.localStream = null;
     this._mediaNote = "";
     for (let i = 0; i < attempts.length && !this.localStream; i++) {
       try {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error("getUserMedia unavailable (needs HTTPS)");
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia)
+          throw new Error("getUserMedia unavailable (needs a secure https page)");
         this.localStream = await navigator.mediaDevices.getUserMedia(attempts[i]);
       } catch (e) {
         lastErr = e;
-        if (e && e.name === "NotAllowedError") break;
+        // A blocked permission won't change across the other attempts, so stop
+        // early and tell the user exactly how to unblock it.
+        if (isPermissionError(e)) break;
       }
     }
     if (!this.localStream) {
       this.localStream = new MediaStream();
       this.camOn = false;
       this.micOn = false;
-      this._mediaNote = "No mic/camera (" + ((lastErr && (lastErr.name || lastErr.message)) || "unknown") + "). Joined without sending audio/video.";
+      const name = lastErr && lastErr.name;
+      if (isPermissionError(lastErr)) {
+        this._mediaNote =
+          "Camera/mic is blocked. Click the camera icon in your browser's address bar, set it to Allow, then start the call again.";
+      } else if (name === "NotReadableError" || name === "TrackStartError") {
+        this._mediaNote = "Your camera/mic is in use by another app. Close it and try again.";
+      } else {
+        this._mediaNote =
+          "No mic/camera found (" +
+          (name || (lastErr && lastErr.message) || "unknown") +
+          "). Joined without sending audio/video.";
+      }
     } else {
       this.micOn = this.localStream.getAudioTracks().length > 0;
       this.camOn = this.localStream.getVideoTracks().length > 0;
