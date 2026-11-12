@@ -116,6 +116,7 @@ export const PartyCallOverlay = {
       this.phase = "connected";
       await this.heartbeat();
       this.presenceTimer = setInterval(() => this.heartbeat(), HEARTBEAT_MS);
+      if (this._mediaNote) this.showError(this._mediaNote);
     } catch (e) {
       console.warn("PartyCallOverlay: start failed", e);
       this.phase = "idle";
@@ -126,12 +127,35 @@ export const PartyCallOverlay = {
   },
 
   async startMedia() {
-    try {
-      this.localStream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: true });
-    } catch (e) {
+    // Try camera+mic, then mic only, then camera only, so a PC without a
+    // camera still sends audio instead of silently sending nothing.
+    const attempts = [
+      { video: { width: 640, height: 480 }, audio: true },
+      { audio: true },
+      { video: { width: 640, height: 480 } },
+    ];
+    let lastErr = null;
+    this.localStream = null;
+    this._mediaNote = "";
+    for (let i = 0; i < attempts.length && !this.localStream; i++) {
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error("getUserMedia unavailable (needs HTTPS)");
+        this.localStream = await navigator.mediaDevices.getUserMedia(attempts[i]);
+      } catch (e) {
+        lastErr = e;
+        if (e && e.name === "NotAllowedError") break;
+      }
+    }
+    if (!this.localStream) {
       this.localStream = new MediaStream();
       this.camOn = false;
       this.micOn = false;
+      this._mediaNote = "No mic/camera (" + ((lastErr && (lastErr.name || lastErr.message)) || "unknown") + "). Joined without sending audio/video.";
+    } else {
+      this.micOn = this.localStream.getAudioTracks().length > 0;
+      this.camOn = this.localStream.getVideoTracks().length > 0;
+      if (!this.camOn && this.micOn) this._mediaNote = "No camera found. Joined with microphone only.";
+      else if (!this.micOn && this.camOn) this._mediaNote = "No microphone found. Joined with camera only.";
     }
   },
 
