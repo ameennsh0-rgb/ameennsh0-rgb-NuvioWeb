@@ -133,7 +133,7 @@ async function checkSilent(video) {
     await engage(video, src, video.currentTime);
   } catch (error) {
     console.warn("Audio helper failed", error);
-    toast("Audio helper could not convert this movie.");
+    toast("Audio helper could not convert this movie: " + String((error && error.message) || error).slice(0, 120));
   }
 }
 
@@ -158,7 +158,7 @@ async function rescueStuck(video, src) {
     video.play().catch(() => {});
   } catch (error) {
     console.warn("Audio helper could not rescue this movie", error);
-    toast("Audio helper could not convert this movie.");
+    toast("Audio helper could not convert this movie: " + String((error && error.message) || error).slice(0, 120));
   }
 }
 
@@ -192,10 +192,11 @@ export function installLocalAudioHelper() {
       }
       const src = video.currentSrc || video.src || "";
       setTimeout(() => {
-        if (video.readyState === 0 && !video.error) {
+        // Nothing playable yet (no data, or only the file header) after 10 seconds.
+        if (video.readyState < 3 && video.currentTime < 1) {
           void rescueStuck(video, src);
         }
-      }, 8000);
+      }, 10000);
     },
     true
   );
