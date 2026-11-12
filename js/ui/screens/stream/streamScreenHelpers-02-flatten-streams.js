@@ -38,6 +38,7 @@ import { WebOsEngineFsResolver } from "../../../core/p2p/webosEngineFsResolver.j
 import { TizenStreamingServerResolver } from "../../../core/p2p/tizenStreamingServerResolver.js";
 
 import { DebridSettingsStore } from "../../../data/local/debridSettingsStore.js";
+import { sizeBytesFromStreamText } from "../../../core/debrid/streamTextSizeParser.js";
 
 import { StreamBadgeSettingsStore } from "../../../data/local/streamBadgeSettingsStore.js";
 
@@ -93,6 +94,21 @@ export function flattenStreams(streamResult) {
     return [];
   }
   const flattened = [];
+  // Size filter (Settings -> Debrid -> file size range). The debrid presentation
+  // layer only filters streams the app's own resolver manages, so addon-side
+  // resolved streams (e.g. Torrentio + TorBox) used to skip it entirely. Apply
+  // it here so the file-size range applies to every stream in the list.
+  const streamPrefs = (DebridSettingsStore.get && DebridSettingsStore.get().streamPreferences) || {};
+  const sizeMinBytes = Math.max(0, Number(streamPrefs.sizeMinGb) || 0) * 1000000000;
+  const sizeMaxBytes = Math.max(0, Number(streamPrefs.sizeMaxGb) || 0) * 1000000000;
+  const outOfSizeRange = (entry) => {
+    if (sizeMinBytes <= 0 && sizeMaxBytes <= 0) return false;
+    const size = Number(entry.behaviorHints?.videoSize) || sizeBytesFromStreamText(entry) || 0;
+    if (!size) return false; // unknown size: never hide it
+    if (sizeMaxBytes > 0 && size > sizeMaxBytes) return true;
+    if (sizeMinBytes > 0 && size < sizeMinBytes) return true;
+    return false;
+  };
   (streamResult.data || []).forEach((group) => {
     const groupName = group.addonName || "Addon";
     (group.streams || []).forEach((stream, index) => {
@@ -151,10 +167,11 @@ export function flattenStreams(streamResult) {
         raw: stream
       };
       if (
-        canResolveMediaServerStream(entry) ||
-        DirectDebridResolver.shouldListStream(entry) ||
-        WebOsEngineFsResolver.canResolveStream(entry) ||
-        TizenStreamingServerResolver.canResolveStream(entry)
+        (canResolveMediaServerStream(entry) ||
+          DirectDebridResolver.shouldListStream(entry) ||
+          WebOsEngineFsResolver.canResolveStream(entry) ||
+          TizenStreamingServerResolver.canResolveStream(entry)) &&
+        !outOfSizeRange(entry)
       ) {
         flattened.push(entry);
       }
