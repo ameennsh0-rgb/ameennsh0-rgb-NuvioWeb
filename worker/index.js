@@ -73,7 +73,9 @@ async function handleAddonProxy(request, url) {
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25000);
+  // Debrid addons (Comet + TorBox/RealDebrid) can take 20-40s to resolve, and
+  // the app waits up to 60s per source, so keep the proxy just under that.
+  const timeout = setTimeout(() => controller.abort(), 55000);
   let upstream;
   try {
     upstream = await fetch(target.toString(), {
