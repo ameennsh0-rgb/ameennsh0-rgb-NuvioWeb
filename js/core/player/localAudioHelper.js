@@ -137,6 +137,31 @@ async function checkSilent(video) {
   }
 }
 
+// The browser cannot start this file at all (for example HEVC video inside an
+// MKV container): nothing loads, or the element reports an error. The helper
+// can repackage it into HLS, which the browser does understand.
+async function rescueStuck(video, src) {
+  if (!src || video.dataset.nuvioAudioHelper === "1" || video.dataset.nuvioStuckTried === src) {
+    return;
+  }
+  const current = video.currentSrc || video.src || "";
+  if (current !== src || src.startsWith("blob:") || src.startsWith("data:") || src.includes("assets/demo/")) {
+    return;
+  }
+  video.dataset.nuvioStuckTried = src;
+  if (!(await helperAvailable())) {
+    return;
+  }
+  toast("This movie can't start in the browser. Converting it with the audio helper...");
+  try {
+    await engage(video, src, 0);
+    video.play().catch(() => {});
+  } catch (error) {
+    console.warn("Audio helper could not rescue this movie", error);
+    toast("Audio helper could not convert this movie.");
+  }
+}
+
 export function installLocalAudioHelper() {
   if (installed || typeof document === "undefined") {
     return;
@@ -153,6 +178,35 @@ export function installLocalAudioHelper() {
         return;
       }
       setTimeout(() => void checkSilent(video), CHECK_AFTER_MS);
+    },
+    true
+  );
+
+  // Nothing loaded after a while, or a decode/format error: let the helper try.
+  document.addEventListener(
+    "loadstart",
+    (event) => {
+      const video = event.target;
+      if (!isPlayer(video) || video.dataset.nuvioAudioHelper === "1") {
+        return;
+      }
+      const src = video.currentSrc || video.src || "";
+      setTimeout(() => {
+        if (video.readyState === 0 && !video.error) {
+          void rescueStuck(video, src);
+        }
+      }, 8000);
+    },
+    true
+  );
+  document.addEventListener(
+    "error",
+    (event) => {
+      const video = event.target;
+      if (!isPlayer(video) || video.dataset.nuvioAudioHelper === "1") {
+        return;
+      }
+      void rescueStuck(video, video.currentSrc || video.src || "");
     },
     true
   );
