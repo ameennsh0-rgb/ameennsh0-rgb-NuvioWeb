@@ -657,6 +657,41 @@ export function createMetaDetailsScreenMethods16() {
         }
       };
       this.container.addEventListener("click", this.detailClickHandler, true);
+
+      // Press-and-hold the play button (mouse/touch) opens the play-options
+      // menu — Play manually, Play from beginning — matching the TV remote hold.
+      const HERO_POINTER_HOLD_MS = 600;
+      const clearHeroPointerHold = () => {
+        if (this.heroPointerHoldTimer) {
+          clearTimeout(this.heroPointerHoldTimer);
+          this.heroPointerHoldTimer = null;
+        }
+      };
+      if (this.heroPointerDownHandler) {
+        this.container.removeEventListener("pointerdown", this.heroPointerDownHandler, true);
+      }
+      if (this.heroPointerUpHandler) {
+        this.container.removeEventListener("pointerup", this.heroPointerUpHandler, true);
+        this.container.removeEventListener("pointercancel", this.heroPointerUpHandler, true);
+        this.container.removeEventListener("pointerleave", this.heroPointerUpHandler, true);
+      }
+      this.heroPointerHoldFired = false;
+      this.heroPointerDownHandler = (event) => {
+        const btn = event.target?.closest?.('.series-detail-actions [data-action="playDefault"]');
+        if (!btn) return;
+        this.heroPointerHoldFired = false;
+        clearHeroPointerHold();
+        this.heroPointerHoldTimer = setTimeout(() => {
+          this.heroPointerHoldTimer = null;
+          this.heroPointerHoldFired = true;
+          this.openHeroPlayMenu();
+        }, HERO_POINTER_HOLD_MS);
+      };
+      this.heroPointerUpHandler = clearHeroPointerHold;
+      this.container.addEventListener("pointerdown", this.heroPointerDownHandler, true);
+      this.container.addEventListener("pointerup", this.heroPointerUpHandler, true);
+      this.container.addEventListener("pointercancel", this.heroPointerUpHandler, true);
+      this.container.addEventListener("pointerleave", this.heroPointerUpHandler, true);
       this.detailScrollHandler();
       this.restoreChromeState();
       this.syncTrailerDom();

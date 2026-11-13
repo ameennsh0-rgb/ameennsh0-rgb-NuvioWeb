@@ -46,6 +46,13 @@ export function createMetaDetailsScreenMethods27() {
         return false;
       }
 
+      // A press-and-hold on the play button already opened the play-options
+      // menu, so swallow the click that follows it.
+      if (action === "playDefault" && this.heroPointerHoldFired) {
+        this.heroPointerHoldFired = false;
+        return true;
+      }
+
       // Pointer activation is a click, not a key-down/key-up hold. Reuse the
       // Android-aligned OK dispatcher so every detail action stays in one path.
       const activation = this.onKeyDown({
@@ -101,6 +108,20 @@ export function createMetaDetailsScreenMethods27() {
       this.cancelPendingSeasonHold();
       this.cancelPendingPosterHold();
       this.cancelPendingHeroHold();
+      if (this.heroPointerHoldTimer) {
+        clearTimeout(this.heroPointerHoldTimer);
+        this.heroPointerHoldTimer = null;
+      }
+      if (this.container && this.heroPointerDownHandler) {
+        this.container.removeEventListener("pointerdown", this.heroPointerDownHandler, true);
+        this.heroPointerDownHandler = null;
+      }
+      if (this.container && this.heroPointerUpHandler) {
+        this.container.removeEventListener("pointerup", this.heroPointerUpHandler, true);
+        this.container.removeEventListener("pointercancel", this.heroPointerUpHandler, true);
+        this.container.removeEventListener("pointerleave", this.heroPointerUpHandler, true);
+        this.heroPointerUpHandler = null;
+      }
       this.posterOptionsController?.destroy?.({ restoreFocus: false });
       this.posterOptionsController = null;
       this.posterOptionsFocusRestore = null;
