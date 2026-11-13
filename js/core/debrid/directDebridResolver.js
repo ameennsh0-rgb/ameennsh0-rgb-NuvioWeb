@@ -1,5 +1,6 @@
 import { DebridSettingsStore } from "../../data/local/debridSettingsStore.js";
 import { DebridApi } from "../../data/remote/api/debridApi.js";
+import { Platform } from "../../platform/index.js";
 import { DEBRID_CAPABILITIES, DEBRID_PROVIDER_IDS, DebridProviders } from "./debridProviders.js";
 import {
   getDebridFileDisplayName,
@@ -233,6 +234,17 @@ async function resolveTorbox(resolve, apiKey, season, episode) {
   const file = selectDebridFile(files, resolve, { season, episode, kind: "torbox" });
   if (!file) {
     return failure("stale");
+  }
+  // On the web build the browser can't play HEVC/MKV/AC3/DTS directly. Ask
+  // TorBox (Pro) to prepare a transcoded HLS stream and play that instead.
+  // Only when the file actually needs it; compatible files use the raw link
+  // below so they direct-play without extra server work.
+  if (Platform.isBrowser()) {
+    const stream = await DebridApi.torboxCreateStream(apiKey, torrentId, file.id, "torrent");
+    const streamData = stream.data?.data || {};
+    if (stream.ok && streamData.hls_url && streamData.needs_transcoding) {
+      return success(streamData.hls_url, getDebridFileDisplayName(file), getDebridFileSize(file));
+    }
   }
   const link = await DebridApi.torboxRequestDownloadLink(apiKey, torrentId, file.id);
   const url = typeof link.data?.data === "string" ? link.data.data : "";

@@ -236,6 +236,22 @@ export const DebridApi = {
     });
   },
 
+  // Ask TorBox to prepare a browser-playable HLS stream of a cached file,
+  // transcoding (HEVC/MKV/AC3/DTS -> H.264/AAC) on their servers when the
+  // browser can't play the file directly. Returns data.hls_url + metadata,
+  // including needs_transcoding. Pro-tier feature.
+  async torboxCreateStream(apiKey, id, fileId, type = "torrent") {
+    const query = new URLSearchParams({
+      token: String(apiKey || "").trim(),
+      id: String(id),
+      type: String(type || "torrent")
+    });
+    if (fileId != null) query.set("file_id", String(fileId));
+    return requestJson(TORBOX_BASE_URL, `v1/api/stream/createstream?${query.toString()}`, {
+      headers: authHeaders(apiKey)
+    });
+  },
+
   async torboxListCloudItems(apiKey, path) {
     return requestJson(TORBOX_BASE_URL, path, { headers: authHeaders(apiKey) });
   },
