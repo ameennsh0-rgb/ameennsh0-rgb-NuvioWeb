@@ -112,11 +112,130 @@ async function handleAddonProxy(request, url) {
   });
 }
 
+const TBX_HLS_PATH = "/__tbxhls";
+const TORBOX_API = "https://api.torbox.app";
+
+function jsonResponse(status, obj) {
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: { "content-type": "application/json", "access-control-allow-origin": "*" }
+  });
+}
+
+function filenameFromContentDisposition(cd) {
+  if (!cd) return "";
+  // Prefer RFC 5987 filename* (UTF-8), else plain filename.
+  const star = cd.match(/filename\*=(?:UTF-8'')?([^;]+)/i);
+  if (star) {
+    try {
+      return decodeURIComponent(star[1].trim().replace(/^"|"$/g, ""));
+    } catch {
+      /* fall through */
+    }
+  }
+  const plain = cd.match(/filename="?([^";]+)"?/i);
+  return plain ? plain[1].trim() : "";
+}
+
+// Resolve a TorBox download/CDN link into a browser-playable transcoded HLS
+// URL. The browser can't do this itself (TorBox's API sends no CORS headers and
+// the file name only comes back on the download host), so the worker does it:
+// read the file name from the download link, find that file in the user's
+// TorBox library, and ask TorBox to create a transcoded stream for it.
+async function handleTbxHls(request, url) {
+  if (request.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        "access-control-allow-origin": "*",
+        "access-control-allow-methods": "GET, OPTIONS",
+        "access-control-allow-headers": "content-type"
+      }
+    });
+  }
+  const src = url.searchParams.get("src");
+  if (!src) return jsonResponse(400, { error: "missing src" });
+
+  let target;
+  try {
+    target = new URL(src);
+  } catch {
+    return jsonResponse(400, { error: "bad src" });
+  }
+  if (!/(^|\.)tb-cdn\.|torbox/i.test(target.hostname + target.pathname)) {
+    return jsonResponse(400, { error: "not a torbox url" });
+  }
+  const token = target.searchParams.get("token") || url.searchParams.get("token");
+  if (!token) return jsonResponse(400, { error: "no token" });
+  const auth = { Authorization: `Bearer ${token}` };
+
+  // 1. Get the exact file name from the download link (a 1-byte range request
+  //    is enough to read the Content-Disposition header).
+  let filename = "";
+  try {
+    const head = await fetch(target.toString(), { headers: { Range: "bytes=0-0" } });
+    filename = filenameFromContentDisposition(head.headers.get("content-disposition"));
+  } catch {
+    /* ignore */
+  }
+  if (!filename) return jsonResponse(502, { error: "could not read filename" });
+
+  // 2. Find that file in the user's TorBox library.
+  let list;
+  try {
+    const res = await fetch(`${TORBOX_API}/v1/api/torrents/mylist?bypass_cache=false`, { headers: auth });
+    list = await res.json();
+  } catch {
+    return jsonResponse(502, { error: "mylist failed" });
+  }
+  const torrents = Array.isArray(list?.data) ? list.data : [];
+  const wanted = filename.toLowerCase();
+  let foundId = null;
+  let foundFileId = null;
+  for (const t of torrents) {
+    const files = Array.isArray(t?.files) ? t.files : [];
+    for (const f of files) {
+      const short = String(f.short_name || "").toLowerCase();
+      const name = String(f.name || "").toLowerCase();
+      if (short === wanted || name.endsWith(wanted) || (short && wanted.includes(short)) || (name && name.includes(wanted))) {
+        foundId = t.id;
+        foundFileId = f.id;
+        break;
+      }
+    }
+    if (foundId != null) break;
+  }
+  if (foundId == null || foundFileId == null) {
+    return jsonResponse(404, { error: "file not found in torbox library" });
+  }
+
+  // 3. Create a transcoded stream for it.
+  let cs;
+  try {
+    const q = new URLSearchParams({
+      token,
+      id: String(foundId),
+      file_id: String(foundFileId),
+      type: "torrent"
+    });
+    const res = await fetch(`${TORBOX_API}/v1/api/stream/createstream?${q.toString()}`, { headers: auth });
+    cs = await res.json();
+  } catch {
+    return jsonResponse(502, { error: "createstream failed" });
+  }
+  const data = cs?.data || {};
+  if (!data.hls_url) return jsonResponse(502, { error: "no hls_url" });
+  return jsonResponse(200, { hls_url: data.hls_url, needs_transcoding: Boolean(data.needs_transcoding) });
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname === ADDON_PROXY_PATH) {
       return handleAddonProxy(request, url);
+    }
+    if (url.pathname === TBX_HLS_PATH) {
+      return handleTbxHls(request, url);
     }
     // Everything else is a static asset (SPA fallback handled by the binding).
     return env.ASSETS.fetch(request);
@@ -124,4 +243,4 @@ export default {
 };
 
 // Exported for local tests.
-export { handleAddonProxy, isBlockedHost };
+export { handleAddonProxy, isBlockedHost, handleTbxHls };
