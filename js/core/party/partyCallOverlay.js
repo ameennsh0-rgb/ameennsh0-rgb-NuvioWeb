@@ -22,7 +22,12 @@ const HEARTBEAT_MS = 4000;
 
 function isBrowserRuntime() {
   try {
-    return typeof window !== "undefined" && typeof document !== "undefined" && !globalThis.tizen && !globalThis.webOS;
+    return (
+      typeof window !== "undefined" &&
+      typeof document !== "undefined" &&
+      !globalThis.tizen &&
+      !globalThis.webOS
+    );
   } catch (_) {
     return false;
   }
@@ -98,9 +103,11 @@ export const PartyCallOverlay = {
         .then((profiles) => {
           const activeId = String(ProfileManager.getActiveProfileId() || "");
           const list = Array.isArray(profiles) ? profiles : [];
-          const active = list.find((p) => String(p.id || p.profileIndex || "1") === activeId) || list[0];
+          const active =
+            list.find((p) => String(p.id || p.profileIndex || "1") === activeId) || list[0];
           const name = String((active && active.name) || "").trim();
-          if (name && (!this.myName || /^(guest|you)$/i.test(String(this.myName).trim()))) this.myName = name;
+          if (name && (!this.myName || /^(guest|you)$/i.test(String(this.myName).trim())))
+            this.myName = name;
         })
         .catch(() => {});
     } catch (_) {
@@ -123,7 +130,7 @@ export const PartyCallOverlay = {
     const run = this.lock.then(fn, fn);
     this.lock = run.then(
       () => {},
-      () => {},
+      () => {}
     );
     return run;
   },
@@ -158,15 +165,29 @@ export const PartyCallOverlay = {
   },
 
   async startMedia() {
+    // Mic audio without the browser's call processing. echoCancellation (on by
+    // default) marks the whole session as a "communication" stream, which makes
+    // Chrome/Windows duck and low-pass everything else playing — that's what
+    // muffles the movie while a call is open. Turning the three processors off
+    // keeps the movie full-fidelity. Trade-off: on open speakers the other side
+    // may hear a faint echo of your movie, so headphones are ideal.
+    const micAudio = {
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false
+    };
     // Try camera+mic, then mic only, then camera only, so a PC without a
     // camera still sends audio instead of silently sending nothing.
     const attempts = [
-      { video: { width: 640, height: 480 }, audio: true },
-      { audio: true },
-      { video: { width: 640, height: 480 } },
+      { video: { width: 640, height: 480 }, audio: micAudio },
+      { audio: micAudio },
+      { video: { width: 640, height: 480 } }
     ];
     const isPermissionError = (e) =>
-      e && (e.name === "NotAllowedError" || e.name === "SecurityError" || e.name === "PermissionDeniedError");
+      e &&
+      (e.name === "NotAllowedError" ||
+        e.name === "SecurityError" ||
+        e.name === "PermissionDeniedError");
     let lastErr = null;
     this.localStream = null;
     this._mediaNote = "";
@@ -201,15 +222,17 @@ export const PartyCallOverlay = {
     } else {
       this.micOn = this.localStream.getAudioTracks().length > 0;
       this.camOn = this.localStream.getVideoTracks().length > 0;
-      if (!this.camOn && this.micOn) this._mediaNote = "No camera found. Joined with microphone only.";
-      else if (!this.micOn && this.camOn) this._mediaNote = "No microphone found. Joined with camera only.";
+      if (!this.camOn && this.micOn)
+        this._mediaNote = "No camera found. Joined with microphone only.";
+      else if (!this.micOn && this.camOn)
+        this._mediaNote = "No microphone found. Joined with camera only.";
     }
   },
 
   async connectSfu() {
     this.pc = new RTCPeerConnection({
       iceServers: [{ urls: "stun:stun.cloudflare.com:3478" }],
-      bundlePolicy: "max-bundle",
+      bundlePolicy: "max-bundle"
     });
     const audioTrack = this.localStream.getAudioTracks()[0];
     const videoTrack = this.localStream.getVideoTracks()[0];
@@ -223,7 +246,7 @@ export const PartyCallOverlay = {
     if (txV.mid != null) tracks.push({ location: "local", mid: txV.mid, trackName: "v" });
     const res = await this.api("POST", "/sfu/sessions/" + this.sessionId + "/tracks/new", {
       sessionDescription: { type: "offer", sdp: this.pc.localDescription.sdp },
-      tracks,
+      tracks
     });
     await this.pc.setRemoteDescription({ type: "answer", sdp: res.sessionDescription.sdp });
   },
@@ -232,13 +255,13 @@ export const PartyCallOverlay = {
     return this.withLock(async () => {
       const names = ["a", "v"];
       const res = await this.api("POST", "/sfu/sessions/" + this.sessionId + "/tracks/new", {
-        tracks: names.map((n) => ({ location: "remote", sessionId: peer.sessionId, trackName: n })),
+        tracks: names.map((n) => ({ location: "remote", sessionId: peer.sessionId, trackName: n }))
       });
       if (res.requiresImmediateRenegotiation && res.sessionDescription) {
         await this.pc.setRemoteDescription({ type: "offer", sdp: res.sessionDescription.sdp });
         await this.pc.setLocalDescription(await this.pc.createAnswer());
         await this.api("PUT", "/sfu/sessions/" + this.sessionId + "/renegotiate", {
-          sessionDescription: { type: "answer", sdp: this.pc.localDescription.sdp },
+          sessionDescription: { type: "answer", sdp: this.pc.localDescription.sdp }
         });
       }
       const stream = new MediaStream();
@@ -261,7 +284,7 @@ export const PartyCallOverlay = {
         sessionId: this.sessionId,
         tracks: ["a", "v"],
         camera: this.camOn,
-        mic: this.micOn,
+        mic: this.micOn
       });
       await this.reconcile(res.peers || []);
     } catch (e) {
@@ -313,7 +336,7 @@ export const PartyCallOverlay = {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ memberId: me }),
-          keepalive: true,
+          keepalive: true
         }).catch(() => {});
       } catch (_) {}
     }
@@ -416,17 +439,26 @@ export const PartyCallOverlay = {
     tiles.className = "nctiles";
     Object.values(this.remotes).forEach((r) => {
       const hasVideo = r.info.camera !== false && r.stream && r.stream.getVideoTracks().length > 0;
-      tiles.appendChild(this.tile(r.info.name || "Guest", hasVideo ? r.stream : null, r.info.mic === false, false));
+      tiles.appendChild(
+        this.tile(r.info.name || "Guest", hasVideo ? r.stream : null, r.info.mic === false, false)
+      );
     });
     // self
-    const selfVideo = this.camOn && this.localStream && this.localStream.getVideoTracks().length ? this.localStream : null;
+    const selfVideo =
+      this.camOn && this.localStream && this.localStream.getVideoTracks().length
+        ? this.localStream
+        : null;
     tiles.appendChild(this.tile("You", selfVideo, !this.micOn, true));
     root.appendChild(tiles);
 
     const ctrls = document.createElement("div");
     ctrls.className = "ncctrls";
-    ctrls.appendChild(this.ctl(this.micOn ? "\u{1F3A4}" : "\u{1F507}", !this.micOn, () => this.setMic(!this.micOn)));
-    ctrls.appendChild(this.ctl(this.camOn ? "\u{1F4F7}" : "\u{1F6AB}", !this.camOn, () => this.setCam(!this.camOn)));
+    ctrls.appendChild(
+      this.ctl(this.micOn ? "\u{1F3A4}" : "\u{1F507}", !this.micOn, () => this.setMic(!this.micOn))
+    );
+    ctrls.appendChild(
+      this.ctl(this.camOn ? "\u{1F4F7}" : "\u{1F6AB}", !this.camOn, () => this.setCam(!this.camOn))
+    );
     const end = this.ctl("\u{1F4DE}", false, () => this.leave());
     end.classList.add("end");
     ctrls.appendChild(end);
@@ -463,7 +495,7 @@ export const PartyCallOverlay = {
     b.innerHTML = label;
     b.onclick = onClick;
     return b;
-  },
+  }
 };
 
 function escapeHtml(t) {
