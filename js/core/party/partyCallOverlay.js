@@ -6,6 +6,7 @@
 // and phone callers share one call. It is decoupled from the party panel DOM:
 // its own buttons are plain clickable elements.
 
+import { ProfileManager } from "../profile/profileManager.js";
 import { PartyRepository } from "./partyRepository.js";
 
 const CALL_SERVER = (() => {
@@ -83,8 +84,38 @@ export const PartyCallOverlay = {
     this.memberId = String(party.memberId || "");
     const me = (party.members || []).find((m) => (m.member_id || m.memberId) === party.memberId);
     this.myName = (me && (me.display_name || me.displayName)) || party.displayName || "Guest";
+    this._media = party.media || null;
+    this.useProfileName();
     this.show();
     this.render();
+  },
+
+  // The party often only knows "Guest"/"You" on the web; the signed-in Nuvio
+  // profile has the real name, so prefer it.
+  useProfileName() {
+    try {
+      Promise.resolve(ProfileManager.getProfiles())
+        .then((profiles) => {
+          const activeId = String(ProfileManager.getActiveProfileId() || "");
+          const list = Array.isArray(profiles) ? profiles : [];
+          const active = list.find((p) => String(p.id || p.profileIndex || "1") === activeId) || list[0];
+          const name = String((active && active.name) || "").trim();
+          if (name && (!this.myName || /^(guest|you)$/i.test(String(this.myName).trim()))) this.myName = name;
+        })
+        .catch(() => {});
+    } catch (_) {
+      // keep the name we have
+    }
+  },
+
+  // What is being watched right now, e.g. "Bee Movie" or "Show S1E2".
+  movieLabel() {
+    const m = this._media;
+    if (!m) return "";
+    const title = String(m.title || "").trim();
+    if (!title) return "";
+    const ep = m.season != null && m.episode != null ? " S" + m.season + "E" + m.episode : "";
+    return (title + ep).slice(0, 120);
   },
 
   // ---- WebRTC ----
@@ -226,6 +257,7 @@ export const PartyCallOverlay = {
       const res = await this.api("POST", "/rooms/" + encodeURIComponent(this.room) + "/join", {
         memberId: this.memberId,
         name: this.myName,
+        movie: this.movieLabel(),
         sessionId: this.sessionId,
         tracks: ["a", "v"],
         camera: this.camOn,
