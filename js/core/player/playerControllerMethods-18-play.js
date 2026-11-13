@@ -73,7 +73,8 @@ export function createPlayerControllerMethods18() {
         streamIdentity = null,
         cloudSessionToken = null,
         preserveTrackSelections = false,
-        forceLocalProxy = false
+        forceLocalProxy = false,
+        torboxTranscodeHint = null
       } = {}
     ) {
       this.cancelProxyRedirectObservation?.();
@@ -97,7 +98,7 @@ export function createPlayerControllerMethods18() {
       // stream, which the CDN serves with CORS so it plays straight through.
       let torboxHlsDirect = false;
       if (Platform.isBrowser()) {
-        const transcoded = await maybeTorboxWebTranscode(requestedUrl);
+        const transcoded = await maybeTorboxWebTranscode(requestedUrl, torboxTranscodeHint || {});
         if (!this.isPlaybackRequestActive(playToken)) {
           return;
         }

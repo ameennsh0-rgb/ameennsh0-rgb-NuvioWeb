@@ -9,7 +9,7 @@ const TORBOX_RESOLVE_RE = /\/resolve\/torbox\/([^/]+)\/([a-fA-F0-9]{40})(?:\/(\d
 
 const VIDEO_EXT_RE = /\.(mkv|mp4|avi|m4v|ts|webm|mov|wmv|flv|mpg|mpeg)$/i;
 
-function pickVideoFile(files, wantedName) {
+function pickVideoFile(files, wantedName, fileIdx) {
   if (!Array.isArray(files) || files.length === 0) return null;
   const videos = files.filter(
     (f) => /video\//i.test(f.mimetype || "") || VIDEO_EXT_RE.test(String(f.short_name || f.name || ""))
@@ -23,8 +23,36 @@ function pickVideoFile(files, wantedName) {
     });
     if (match) return match;
   }
+  // Torrentio's file index usually lines up with TorBox's file ordering.
+  if (fileIdx != null && Number.isFinite(Number(fileIdx))) {
+    const byIdx = files[Number(fileIdx)];
+    if (byIdx && (videos.length === 0 || videos.includes(byIdx))) return byIdx;
+  }
   // Otherwise the largest file (the feature, not a sample).
   return pool.reduce((a, b) => (Number(b.size || 0) > Number(a.size || 0) ? b : a));
+}
+
+const HASH_RE = /\b([a-fA-F0-9]{40})\b/;
+
+// Pull the infohash + file name/index + api key out of whatever we have: the
+// playback URL, the original addon URL, or the stream's own fields.
+function extractTorboxParams(url, hint = {}) {
+  let hash = null;
+  let filename = "";
+  let apiKey = "";
+  for (const candidate of [String(url || ""), String(hint.addonUrl || "")]) {
+    const m = candidate.match(TORBOX_RESOLVE_RE);
+    if (m) {
+      hash = hash || m[2];
+      filename = filename || m[4] || "";
+      if (!apiKey && m[1]) apiKey = decodeURIComponent(m[1]);
+    }
+  }
+  if (!hash && hint.infoHash) {
+    const hm = String(hint.infoHash).match(HASH_RE);
+    if (hm) hash = hm[1];
+  }
+  return { hash, filename, apiKeyFromUrl: apiKey };
 }
 
 // On the web build, turn a TorBox-resolved stream URL into a TorBox transcoded
@@ -32,23 +60,27 @@ function pickVideoFile(files, wantedName) {
 // get sound and picture instead of a silent or stalled video. Returns null when
 // it doesn't apply: not a TorBox URL, no API key, the file is already
 // browser-compatible, or any error (caller then plays the original URL).
-export async function maybeTorboxWebTranscode(url) {
+export async function maybeTorboxWebTranscode(url, hint = {}) {
   try {
     if (!Platform.isBrowser()) return null;
     const requested = String(url || "");
-    const m = requested.match(TORBOX_RESOLVE_RE);
-    console.info("[TBX] play url:", requested.slice(0, 120), "match:", Boolean(m));
-    if (!m) return null;
-
-    const hash = m[2];
-    const filename = m[4] || "";
+    // Only engage for TorBox: a TorBox resolve/CDN URL, or a stream the app
+    // knows is TorBox-backed (infoHash hint from a TorBox addon).
+    const looksTorbox = /torbox|tb-cdn\./i.test(requested) || Boolean(hint.infoHash || hint.addonUrl);
+    const { hash, filename, apiKeyFromUrl } = extractTorboxParams(requested, hint);
+    console.info(
+      "[TBX] url:", requested.slice(0, 70),
+      "| hint.infoHash:", hint.infoHash || "none",
+      "| hint.addonUrl:", String(hint.addonUrl || "none").slice(0, 70),
+      "| hash:", hash || "none"
+    );
+    if (!looksTorbox || !hash) return null;
 
     const settings = DebridSettingsStore.get();
     // Prefer the key the user configured in Nuvio; fall back to the one in the
     // addon URL if the app doesn't have TorBox set up.
-    let apiKey = DebridProviders.apiKeyFor?.(settings, DEBRID_PROVIDER_IDS.TORBOX) || "";
-    if (!apiKey && m[1]) apiKey = decodeURIComponent(m[1]);
-    console.info("[TBX] hash:", hash, "apiKey:", apiKey ? "present" : "MISSING");
+    const apiKey = DebridProviders.apiKeyFor?.(settings, DEBRID_PROVIDER_IDS.TORBOX) || apiKeyFromUrl || "";
+    console.info("[TBX] apiKey:", apiKey ? "present" : "MISSING");
     if (!apiKey) return null;
 
     const magnet = `magnet:?xt=urn:btih:${hash}`;
@@ -59,7 +91,7 @@ export async function maybeTorboxWebTranscode(url) {
 
     const torrent = await DebridApi.torboxGetTorrent(apiKey, id);
     const files = torrent.data?.data?.files || [];
-    const file = pickVideoFile(files, filename);
+    const file = pickVideoFile(files, filename, hint.fileIdx);
     console.info("[TBX] files:", files.length, "picked file id:", file?.id);
     if (!file || file.id == null) return null;
 

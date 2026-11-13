@@ -37,9 +37,20 @@ export function createPlayerScreenMethods18() {
       const candidateHeaders = this.getCurrentStreamRequestHeaders(sourceCandidate);
       const contextHeaders = context?.requestHeaders && typeof context.requestHeaders === "object" ? context.requestHeaders : {};
       const requestHeaders = { ...candidateHeaders, ...contextHeaders };
+      // Carry the selected stream's identity so the browser TorBox transcoder
+      // can find the file even when the URL is already a resolved CDN link.
+      const candidate = sourceCandidate || this.getCurrentStreamCandidate?.() || this.getStreamCandidateByUrl?.(playbackUrl) || null;
+      const torboxTranscodeHint = candidate
+        ? {
+            infoHash: candidate.infoHash || candidate.raw?.infoHash || null,
+            fileIdx: candidate.fileIdx ?? candidate.raw?.fileIdx ?? null,
+            addonUrl: candidate.raw?.url || candidate.url || null
+          }
+        : null;
       const playbackContext = {
         ...(context && typeof context === "object" ? context : {}),
-        ...(Object.keys(requestHeaders).length ? { requestHeaders } : {})
+        ...(Object.keys(requestHeaders).length ? { requestHeaders } : {}),
+        ...(torboxTranscodeHint ? { torboxTranscodeHint } : {})
       };
       saveReusableStreamLink(this, sourceCandidate || this.getCurrentStreamCandidate(), { url: playbackUrl, headers: requestHeaders });
       PlayerController.setStartupPresentationAudioMuted?.(true);
