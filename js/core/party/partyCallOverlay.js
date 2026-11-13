@@ -75,6 +75,7 @@ export const PartyCallOverlay = {
     const parent = player || document.body;
     if (this.els.root.parentNode !== parent) parent.appendChild(this.els.root);
     this.els.root.classList.toggle("in-player", !!player);
+    this.applyWin();
   },
 
   onParty(party) {
@@ -443,6 +444,34 @@ export const PartyCallOverlay = {
 #nuvio-call .ncc.end{background:#e5484d}
 #nuvio-call .ncerr{max-width:220px;background:rgba(229,72,77,.92);color:#fff;font-size:12px;border-radius:10px;padding:6px 10px}
 #nuvio-call .ncspin{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:ncspin 1s linear infinite}
+/* ---- call window (connected): glass panel, draggable + resizable ---- */
+#nuvio-call.nc-win{pointer-events:auto;align-items:stretch;gap:0;padding:0;min-width:200px;min-height:150px;box-sizing:border-box;border-radius:18px;overflow:hidden;color:#fff;background:rgba(16,16,22,.74);-webkit-backdrop-filter:blur(18px) saturate(1.3);backdrop-filter:blur(18px) saturate(1.3);border:1px solid rgba(255,255,255,.1);box-shadow:0 14px 44px rgba(0,0,0,.55),0 0 0 .5px rgba(0,0,0,.6)}
+#nuvio-call.nc-win.nc-min{min-height:0}
+#nuvio-call.nc-win>*{pointer-events:auto}
+#nuvio-call .nchead{display:flex;align-items:center;gap:8px;flex:0 0 auto;height:34px;padding:0 6px 0 12px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+#nuvio-call .nchead:active{cursor:grabbing}
+#nuvio-call .ncgrip{display:flex;flex-direction:column;gap:3px;opacity:.45}
+#nuvio-call .ncgrip i{display:block;width:16px;height:2px;border-radius:2px;background:#fff}
+#nuvio-call .nctitle{flex:1;min-width:0;font-size:12px;font-weight:600;letter-spacing:.2px;color:rgba(255,255,255,.88);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#nuvio-call .nclive{display:inline-block;width:7px;height:7px;border-radius:50%;background:#3ddc84;margin-right:7px;box-shadow:0 0 8px #3ddc84}
+#nuvio-call .ncmin{width:26px;height:26px;border:0;border-radius:8px;background:transparent;color:rgba(255,255,255,.7);font-size:15px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
+#nuvio-call .ncmin:hover{background:rgba(255,255,255,.12);color:#fff}
+#nuvio-call .ncbody{position:relative;flex:1 1 auto;min-height:0;padding:0 8px}
+#nuvio-call.nc-min .ncbody{display:none}
+#nuvio-call.nc-win .nctiles{position:relative;display:grid;gap:6px;width:100%;height:100%;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));grid-auto-rows:minmax(0,1fr)}
+#nuvio-call.nc-win .nctile{width:auto;height:auto;min-height:0;border-radius:12px;background:#1b1b24;box-shadow:none}
+#nuvio-call.nc-win .nctiles.has-remote .nctile.self{position:absolute;right:8px;bottom:8px;width:30%;max-width:120px;min-width:56px;height:auto;aspect-ratio:4/3;z-index:2;border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.55);outline:2px solid rgba(255,255,255,.2)}
+#nuvio-call .nctile.self video{transform:scaleX(-1)}
+#nuvio-call.nc-win .ncname{font-size:11px;background:rgba(0,0,0,.5);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+#nuvio-call.nc-win .ncctrls{flex:0 0 auto;justify-content:center;align-self:center;margin:8px 0 10px;background:rgba(255,255,255,.08);box-shadow:none;border:1px solid rgba(255,255,255,.08)}
+#nuvio-call.nc-win .ncc{width:34px;height:34px;background:rgba(255,255,255,.12);transition:background .15s,transform .1s}
+#nuvio-call.nc-win .ncc:hover{background:rgba(255,255,255,.22)}
+#nuvio-call.nc-win .ncc:active{transform:scale(.92)}
+#nuvio-call.nc-win .ncc.off,#nuvio-call.nc-win .ncc.end{background:#e5484d}
+#nuvio-call.nc-win .ncc.off:hover,#nuvio-call.nc-win .ncc.end:hover{background:#f0595d}
+#nuvio-call.nc-win .ncerr{max-width:none;margin:0 8px 6px;border-radius:9px}
+#nuvio-call .ncresize{position:absolute;right:0;bottom:0;width:22px;height:22px;cursor:nwse-resize;touch-action:none;z-index:3;background:linear-gradient(135deg,transparent 52%,rgba(255,255,255,.35) 52%,rgba(255,255,255,.35) 58%,transparent 58%,transparent 70%,rgba(255,255,255,.35) 70%,rgba(255,255,255,.35) 76%,transparent 76%)}
+#nuvio-call.nc-min .ncresize{display:none}
 @keyframes ncspin{to{transform:rotate(360deg)}}`;
     const style = document.createElement("style");
     style.id = "nuvio-call-styles";
@@ -455,6 +484,147 @@ export const PartyCallOverlay = {
     root.id = "nuvio-call";
     document.body.appendChild(root);
     this.els.root = root;
+    this.loadWin();
+    // Drag / resize are handled once on the root (children are re-rendered).
+    root.addEventListener("pointerdown", (e) => this.onWinPointerDown(e));
+    root.addEventListener("pointermove", (e) => this.onWinPointerMove(e));
+    root.addEventListener("pointerup", (e) => this.onWinPointerUp(e));
+    root.addEventListener("pointercancel", (e) => this.onWinPointerUp(e));
+    // Swallow the click that ends a drag so the player underneath doesn't react.
+    root.addEventListener(
+      "click",
+      (e) => {
+        if (this._winJustDragged) {
+          e.stopPropagation();
+          e.preventDefault();
+        }
+      },
+      true
+    );
+    window.addEventListener("resize", () => this.applyWin());
+  },
+
+  // ---- call window: position / size (web only), remembered between sessions ----
+  loadWin() {
+    this.win = { w: 264, h: 290, fx: null, fy: null, min: false };
+    try {
+      const saved = JSON.parse(localStorage.getItem("nuvio-call-win-v1") || "null");
+      if (saved && typeof saved === "object") {
+        ["w", "h"].forEach((k) => {
+          if (Number.isFinite(saved[k])) this.win[k] = saved[k];
+        });
+        ["fx", "fy"].forEach((k) => {
+          if (Number.isFinite(saved[k])) this.win[k] = saved[k];
+        });
+        this.win.min = !!saved.min;
+      }
+    } catch (_) {
+      // storage unavailable: use defaults
+    }
+  },
+  saveWin() {
+    try {
+      localStorage.setItem("nuvio-call-win-v1", JSON.stringify(this.win));
+    } catch (_) {
+      // best effort
+    }
+  },
+  winParentBox() {
+    const par = this.els.root && this.els.root.parentNode;
+    if (!par || par === document.body)
+      return { w: window.innerWidth, h: window.innerHeight, left: 0, top: 0 };
+    const r = par.getBoundingClientRect();
+    return { w: r.width, h: r.height, left: r.left, top: r.top };
+  },
+  applyWin() {
+    const root = this.els.root;
+    if (!root || !this.win) return;
+    if (!root.classList.contains("nc-win")) {
+      ["width", "height", "left", "top", "right"].forEach((p) => (root.style[p] = ""));
+      return;
+    }
+    const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), Math.max(lo, hi));
+    const b = this.winParentBox();
+    const w = this.win;
+    w.w = clamp(w.w, 200, b.w - 16);
+    w.h = clamp(w.h, 150, b.h - 16);
+    root.classList.toggle("nc-min", !!w.min);
+    root.style.width = w.w + "px";
+    root.style.height = w.min ? "auto" : w.h + "px";
+    if (w.fx == null || w.fy == null) {
+      // never moved: keep the default top-right anchor from the stylesheet
+      ["left", "top", "right"].forEach((p) => (root.style[p] = ""));
+      return;
+    }
+    const hh = w.min ? root.offsetHeight : w.h;
+    root.style.left = clamp(w.fx * b.w, 0, b.w - w.w) + "px";
+    root.style.top = clamp(w.fy * b.h, 0, b.h - hh) + "px";
+    root.style.right = "auto";
+  },
+  onWinPointerDown(e) {
+    const root = this.els.root;
+    if (!root || !root.classList.contains("nc-win")) return;
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    if (e.target.closest && e.target.closest("button")) return;
+    const handle = e.target.closest && e.target.closest(".ncresize");
+    const head = e.target.closest && e.target.closest(".nchead");
+    if (!handle && !head) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const b = this.winParentBox();
+    const rr = root.getBoundingClientRect();
+    // Pin to explicit coordinates so a right-anchored window can be dragged/resized.
+    const x = rr.left - b.left;
+    const y = rr.top - b.top;
+    this.win.fx = x / b.w;
+    this.win.fy = y / b.h;
+    this.applyWin();
+    this._winDrag = {
+      mode: handle ? "resize" : "move",
+      id: e.pointerId,
+      sx: e.clientX,
+      sy: e.clientY,
+      x,
+      y,
+      w: this.win.w,
+      h: this.win.h,
+      moved: false
+    };
+    try {
+      root.setPointerCapture(e.pointerId);
+    } catch (_) {}
+  },
+  onWinPointerMove(e) {
+    const d = this._winDrag;
+    if (!d || e.pointerId !== d.id) return;
+    const dx = e.clientX - d.sx;
+    const dy = e.clientY - d.sy;
+    if (!d.moved && Math.abs(dx) + Math.abs(dy) < 3) return;
+    d.moved = true;
+    const b = this.winParentBox();
+    if (d.mode === "move") {
+      const hh = this.win.min ? this.els.root.offsetHeight : this.win.h;
+      this.win.fx = Math.min(Math.max(d.x + dx, 0), Math.max(0, b.w - this.win.w)) / b.w;
+      this.win.fy = Math.min(Math.max(d.y + dy, 0), Math.max(0, b.h - hh)) / b.h;
+    } else if (!this.win.min) {
+      // grow/shrink from the bottom-right corner, never past the parent's edge
+      this.win.w = Math.min(Math.max(d.w + dx, 200), Math.max(200, b.w - d.x));
+      this.win.h = Math.min(Math.max(d.h + dy, 150), Math.max(150, b.h - d.y));
+    }
+    this.applyWin();
+  },
+  onWinPointerUp(e) {
+    const d = this._winDrag;
+    if (!d || e.pointerId !== d.id) return;
+    this._winDrag = null;
+    try {
+      this.els.root.releasePointerCapture(e.pointerId);
+    } catch (_) {}
+    if (d.moved) {
+      this._winJustDragged = true;
+      setTimeout(() => (this._winJustDragged = false), 0);
+    }
+    this.saveWin();
   },
 
   show() {
@@ -477,11 +647,14 @@ export const PartyCallOverlay = {
     const root = this.els.root;
     if (!root) return;
     root.textContent = "";
+    root.classList.remove("nc-win", "nc-min");
+    const connected = this.phase === "connected";
     if (this._error) {
       const e = document.createElement("div");
       e.className = "ncerr";
       e.textContent = this._error;
-      root.appendChild(e);
+      if (!connected) root.appendChild(e);
+      else this._errEl = e;
     }
     if (this.phase === "idle") {
       const b = document.createElement("button");
@@ -489,6 +662,7 @@ export const PartyCallOverlay = {
       b.innerHTML = "\u{1F4F9} Start video call";
       b.onclick = () => this.start();
       root.appendChild(b);
+      this.applyWin();
       return;
     }
     if (this.phase === "connecting") {
@@ -496,12 +670,35 @@ export const PartyCallOverlay = {
       b.className = "ncbtn";
       b.innerHTML = '<span class="ncspin"></span> Connecting…';
       root.appendChild(b);
+      this.applyWin();
       return;
     }
-    // connected: tiles + controls
+    // connected: a draggable / resizable glass window (title bar, tiles, controls)
     this.syncRemoteAudio();
+    root.classList.add("nc-win");
+    const head = document.createElement("div");
+    head.className = "nchead";
+    head.title = "Drag to move";
+    head.innerHTML =
+      '<span class="ncgrip"><i></i><i></i></span><span class="nctitle"><span class="nclive"></span>Call' +
+      (Object.keys(this.remotes).length ? " · " + (Object.keys(this.remotes).length + 1) : "") +
+      "</span>";
+    const minBtn = document.createElement("button");
+    minBtn.className = "ncmin";
+    minBtn.title = this.win.min ? "Expand" : "Minimize";
+    minBtn.textContent = this.win.min ? "▢" : "–";
+    minBtn.onclick = () => {
+      this.win.min = !this.win.min;
+      this.saveWin();
+      this.render();
+    };
+    head.appendChild(minBtn);
+    root.appendChild(head);
+    if (this._errEl) root.appendChild(this._errEl);
+    const body = document.createElement("div");
+    body.className = "ncbody";
     const tiles = document.createElement("div");
-    tiles.className = "nctiles";
+    tiles.className = "nctiles" + (Object.keys(this.remotes).length ? " has-remote" : "");
     Object.values(this.remotes).forEach((r) => {
       const hasVideo = r.info.camera !== false && r.stream && r.stream.getVideoTracks().length > 0;
       tiles.appendChild(
@@ -514,7 +711,8 @@ export const PartyCallOverlay = {
         ? this.localStream
         : null;
     tiles.appendChild(this.tile("You", selfVideo, !this.micOn, true));
-    root.appendChild(tiles);
+    body.appendChild(tiles);
+    root.appendChild(body);
 
     const ctrls = document.createElement("div");
     ctrls.className = "ncctrls";
@@ -528,6 +726,12 @@ export const PartyCallOverlay = {
     end.classList.add("end");
     ctrls.appendChild(end);
     root.appendChild(ctrls);
+    const grip = document.createElement("div");
+    grip.className = "ncresize";
+    grip.title = "Drag to resize";
+    root.appendChild(grip);
+    this._errEl = null;
+    this.applyWin();
   },
 
   tile(name, stream, muted, isSelf) {
