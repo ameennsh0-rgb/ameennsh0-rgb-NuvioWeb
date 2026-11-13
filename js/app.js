@@ -456,8 +456,17 @@ async function enterWithLastProfile({ restoreWebOsRoute = false } = {}) {
 function openDemoPlayer() {
   if (globalThis.__demoPlayerOpened) return true;
   globalThis.__demoPlayerOpened = true;
+  // ?demo=1&src=<url> plays any stream through the real player pipeline
+  // (including TorBox transcoding). Default is the bundled blank test clip.
+  let streamUrl = new URL("assets/demo/demo.webm", location.href).href;
+  try {
+    const demoSrc = new URLSearchParams(location.search).get("src");
+    if (demoSrc) streamUrl = demoSrc;
+  } catch (_) {
+    /* ignore */
+  }
   void Router.navigate("player", {
-    streamUrl: new URL("assets/demo/demo.webm", location.href).href,
+    streamUrl,
     itemId: "demo-control-test",
     itemType: "movie",
     playerTitle: "Demo — control test",
