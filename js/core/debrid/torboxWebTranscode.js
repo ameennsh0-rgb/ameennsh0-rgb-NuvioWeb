@@ -37,6 +37,7 @@ export async function maybeTorboxWebTranscode(url) {
     if (!Platform.isBrowser()) return null;
     const requested = String(url || "");
     const m = requested.match(TORBOX_RESOLVE_RE);
+    console.info("[TBX] play url:", requested.slice(0, 120), "match:", Boolean(m));
     if (!m) return null;
 
     const hash = m[2];
@@ -47,27 +48,32 @@ export async function maybeTorboxWebTranscode(url) {
     // addon URL if the app doesn't have TorBox set up.
     let apiKey = DebridProviders.apiKeyFor?.(settings, DEBRID_PROVIDER_IDS.TORBOX) || "";
     if (!apiKey && m[1]) apiKey = decodeURIComponent(m[1]);
+    console.info("[TBX] hash:", hash, "apiKey:", apiKey ? "present" : "MISSING");
     if (!apiKey) return null;
 
     const magnet = `magnet:?xt=urn:btih:${hash}`;
     const create = await DebridApi.torboxCreateTorrent(apiKey, magnet);
     const id = create.data?.data?.torrent_id ?? create.data?.data?.id;
+    console.info("[TBX] createtorrent ok:", create.ok, "status:", create.status, "id:", id);
     if (!create.ok || !id) return null;
 
     const torrent = await DebridApi.torboxGetTorrent(apiKey, id);
     const files = torrent.data?.data?.files || [];
     const file = pickVideoFile(files, filename);
+    console.info("[TBX] files:", files.length, "picked file id:", file?.id);
     if (!file || file.id == null) return null;
 
     const stream = await DebridApi.torboxCreateStream(apiKey, id, file.id, "torrent");
     const data = stream.data?.data || {};
+    console.info("[TBX] createstream ok:", stream.ok, "needs_transcoding:", data.needs_transcoding, "hls:", data.hls_url ? "yes" : "no");
     // Only swap in the transcoded stream when the file actually needs it; a
     // browser-compatible file keeps its direct link (faster, no transcode load).
     if (stream.ok && data.hls_url && data.needs_transcoding) {
       return data.hls_url;
     }
     return null;
-  } catch {
+  } catch (error) {
+    console.warn("[TBX] transcode error:", error?.message || error);
     return null;
   }
 }
