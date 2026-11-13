@@ -15,6 +15,11 @@ export async function maybeTorboxWebTranscode(url, _hint = {}) {
     if (!Platform.isBrowser()) return null;
     const requested = String(url || "");
     if (!TORBOX_URL_RE.test(requested)) return null;
+    // Already a transcoded HLS stream (e.g. a retry re-playing the output) —
+    // don't try to transcode it again; just let the player play it.
+    if (/playlist\.m3u8|\.m3u8(\?|$)|\/stream\/[0-9a-f-]{20,}\//i.test(requested)) {
+      return null;
+    }
 
     const location = globalThis.location;
     if (!location || !location.origin) return null;

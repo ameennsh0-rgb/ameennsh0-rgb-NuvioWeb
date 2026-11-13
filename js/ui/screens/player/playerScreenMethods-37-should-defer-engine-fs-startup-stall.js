@@ -139,7 +139,10 @@ export function createPlayerScreenMethods37() {
         if (Environment.isTizen() || Environment.isWebOS()) {
           return playbackEngine.endsWith("avplay") ? 60000 : 45000;
         }
-        return 18000;
+        // hls.js on the browser is used for TorBox transcoded streams, which
+        // need time to warm up (the CDN starts transcoding on first request),
+        // so give the startup more room before declaring a stall.
+        return playbackEngine === "hls.js" ? 45000 : 18000;
       }
       if (Environment.isTizen()) {
         return playbackEngine.endsWith("avplay") ? 22000 : 16000;

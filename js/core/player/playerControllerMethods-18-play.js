@@ -107,14 +107,18 @@ export function createPlayerControllerMethods18() {
           // Engine/type detection below runs on `url`, so point it at the HLS
           // stream too — otherwise the .m3u8 is treated as a direct file.
           url = transcoded;
-          // The caller may have passed a media type from the original file
-          // (e.g. video/x-matroska), which would override HLS detection and
-          // force the native-file engine. We KNOW this is a transcoded HLS
-          // stream, so pin the type and engine to hls.js.
-          mediaSourceType = "application/vnd.apple.mpegurl";
-          forceEngine = "hls.js";
-          torboxHlsDirect = true;
         }
+      }
+      // Any HLS stream on the browser (a TorBox transcode, or a retry already
+      // holding the HLS url) must use hls.js and skip the stream relay —
+      // Firefox can't play HLS natively, and the CDN already serves CORS.
+      if (
+        Platform.isBrowser() &&
+        /playlist\.m3u8|\.m3u8(\?|$)|tb-cdn\.[a-z]+\/stream\//i.test(requestedUrl)
+      ) {
+        mediaSourceType = "application/vnd.apple.mpegurl";
+        forceEngine = "hls.js";
+        torboxHlsDirect = true;
       }
 
       if (!preserveTrackSelections || !this.playbackSessionActive) {
