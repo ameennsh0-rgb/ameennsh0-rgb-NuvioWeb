@@ -465,8 +465,15 @@ function openDemoPlayer() {
   } catch (_) {
     /* ignore */
   }
+  let streamMimeType = null;
+  try {
+    streamMimeType = new URLSearchParams(location.search).get("mst") || null;
+  } catch (_) {
+    /* ignore */
+  }
   void Router.navigate("player", {
     streamUrl,
+    ...(streamMimeType ? { streamMimeType } : {}),
     itemId: "demo-control-test",
     itemType: "movie",
     playerTitle: "Demo — control test",

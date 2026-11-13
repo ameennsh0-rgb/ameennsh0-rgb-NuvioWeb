@@ -118,7 +118,8 @@ export function createPlayerScreenMethods01() {
             url: initialStreamLocator,
             title: "Current source",
             addonName: "Current",
-            isSynthetic: true
+            isSynthetic: true,
+            ...(params.streamMimeType ? { mimeType: params.streamMimeType } : {})
           }
         ]);
       }
