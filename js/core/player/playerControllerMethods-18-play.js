@@ -104,6 +104,9 @@ export function createPlayerControllerMethods18() {
         }
         if (transcoded) {
           requestedUrl = transcoded;
+          // Engine/type detection below runs on `url`, so point it at the HLS
+          // stream too — otherwise the .m3u8 is treated as a direct file.
+          url = transcoded;
           torboxHlsDirect = true;
         }
       }
