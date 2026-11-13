@@ -251,8 +251,35 @@ export const PartyCallOverlay = {
     await this.pc.setRemoteDescription({ type: "answer", sdp: res.sessionDescription.sdp });
   },
 
+  // The SFU rejects pulls ("Session is not ready yet", 425) until the local
+  // PeerConnection has actually finished connecting, so wait for that first.
+  waitForConnected(timeoutMs = 12000) {
+    const pc = this.pc;
+    return new Promise((resolve, reject) => {
+      if (!pc) return reject(new Error("no peer connection"));
+      const ok = () =>
+        pc.connectionState === "connected" ||
+        pc.iceConnectionState === "connected" ||
+        pc.iceConnectionState === "completed";
+      if (ok()) return resolve();
+      const timer = setTimeout(() => done(new Error("peer connection not ready")), timeoutMs);
+      const check = () => {
+        if (ok()) done();
+      };
+      const done = (err) => {
+        clearTimeout(timer);
+        pc.removeEventListener("connectionstatechange", check);
+        pc.removeEventListener("iceconnectionstatechange", check);
+        err ? reject(err) : resolve();
+      };
+      pc.addEventListener("connectionstatechange", check);
+      pc.addEventListener("iceconnectionstatechange", check);
+    });
+  },
+
   pullPeer(peer) {
     return this.withLock(async () => {
+      await this.waitForConnected();
       const names = ["a", "v"];
       const res = await this.api("POST", "/sfu/sessions/" + this.sessionId + "/tracks/new", {
         tracks: names.map((n) => ({ location: "remote", sessionId: peer.sessionId, trackName: n }))
@@ -297,15 +324,17 @@ export const PartyCallOverlay = {
     for (const p of peers) {
       if (!p || p.memberId === this.memberId) continue;
       seen[p.memberId] = true;
-      if (!this.remotes[p.memberId]) {
-        this.remotes[p.memberId] = { info: p };
+      let remote = this.remotes[p.memberId];
+      if (!remote) remote = this.remotes[p.memberId] = { info: p };
+      else remote.info = p;
+      // Pull when we have no tracks for this peer yet. A failed or empty pull is
+      // retried on the next heartbeat instead of leaving the peer silent forever.
+      if (!remote.stream || remote.stream.getTracks().length === 0) {
         try {
-          this.remotes[p.memberId].stream = await this.pullPeer(p);
+          remote.stream = await this.pullPeer(p);
         } catch (e) {
           console.warn("pull", e.message);
         }
-      } else {
-        this.remotes[p.memberId].info = p;
       }
     }
     Object.keys(this.remotes).forEach((id) => {
@@ -345,8 +374,43 @@ export const PartyCallOverlay = {
     this.render();
   },
 
+  // The tile <video> elements are muted (they only show picture), so each
+  // remote's voice is played through its own persistent <audio> element that
+  // lives outside the re-rendered overlay root.
+  syncRemoteAudio() {
+    if (!this.audioEls) this.audioEls = {};
+    const live = {};
+    Object.entries(this.remotes || {}).forEach(([id, r]) => {
+      const stream = r && r.stream;
+      if (!stream || !stream.getAudioTracks().length) return;
+      live[id] = true;
+      let el = this.audioEls[id];
+      if (!el) {
+        el = document.createElement("audio");
+        el.autoplay = true;
+        el.setAttribute("data-nuvio-call-audio", id);
+        el.style.display = "none";
+        document.body.appendChild(el);
+        this.audioEls[id] = el;
+      }
+      if (el.srcObject !== stream) el.srcObject = stream;
+      if (el.paused) el.play().catch(() => {});
+    });
+    Object.keys(this.audioEls).forEach((id) => {
+      if (live[id]) return;
+      const el = this.audioEls[id];
+      try {
+        el.pause();
+        el.srcObject = null;
+        el.remove();
+      } catch (_) {}
+      delete this.audioEls[id];
+    });
+  },
+
   cleanup() {
     this.remotes = {};
+    this.syncRemoteAudio();
     this.sessionId = null;
     try {
       if (this.pc) this.pc.close();
@@ -435,6 +499,7 @@ export const PartyCallOverlay = {
       return;
     }
     // connected: tiles + controls
+    this.syncRemoteAudio();
     const tiles = document.createElement("div");
     tiles.className = "nctiles";
     Object.values(this.remotes).forEach((r) => {
