@@ -1,5 +1,6 @@
 import { observeProxyRedirects } from "./proxyRedirectObserver.js";
 import { describeSourceHost, isDirectMediaProbeResponse, resolveTizenDirectRedirect } from "../../platform/tizen/tizenRedirectResolver.js";
+import { maybeTorboxWebTranscode } from "../debrid/torboxWebTranscode.js";
 /* eslint-disable no-unused-vars */
 import * as internals from "./playerController.js";
 
@@ -80,7 +81,7 @@ export function createPlayerControllerMethods18() {
       if (!this.video) return;
       this.stopWebOsDtsAudioTranscode({ resetFailures: true });
 
-      const requestedUrl = String(url || "").trim();
+      let requestedUrl = String(url || "").trim();
       const playToken = Number(this.playRequestToken || 0) + 1;
       this.playRequestToken = playToken;
       this.stopProgressSaving();
@@ -89,6 +90,21 @@ export function createPlayerControllerMethods18() {
       await this.flushCurrentProgress({ allowCloudSync: false });
       if (!this.isPlaybackRequestActive(playToken)) {
         return;
+      }
+
+      // Browser: a TorBox-resolved MKV/HEVC/AC3 file can't be played directly
+      // (no codec/container support). Swap it for TorBox's transcoded HLS
+      // stream, which the CDN serves with CORS so it plays straight through.
+      let torboxHlsDirect = false;
+      if (Platform.isBrowser()) {
+        const transcoded = await maybeTorboxWebTranscode(requestedUrl);
+        if (!this.isPlaybackRequestActive(playToken)) {
+          return;
+        }
+        if (transcoded) {
+          requestedUrl = transcoded;
+          torboxHlsDirect = true;
+        }
       }
 
       if (!preserveTrackSelections || !this.playbackSessionActive) {
@@ -155,6 +171,7 @@ export function createPlayerControllerMethods18() {
       // real URL; only the URL the engine loads is swapped.
       if (
         Platform.isBrowser() &&
+        !torboxHlsDirect &&
         !isStreamRelayUrl(requestedUrl) &&
         /^https?:\/\//i.test(requestedUrl) &&
         !isSameOriginUrl(requestedUrl)
