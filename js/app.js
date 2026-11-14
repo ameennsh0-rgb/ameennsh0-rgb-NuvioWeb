@@ -45,6 +45,7 @@ import { installPartyEffects } from "./ui/screens/party/partyEffects.js";
 import {
   hasPendingLaunchDeepLink,
   openPendingLaunchDeepLink,
+  takePartyInviteFromUrl,
   takeTizenLaunchDeepLink,
   takeWebOsLaunchDeepLink
 } from "./core/deeplink/launchDeepLink.js";
@@ -641,6 +642,7 @@ function setupWebOsAppLifecycle() {
   };
 
   takeWebOsLaunchDeepLink();
+  takePartyInviteFromUrl();
 
   document.addEventListener(
     "webOSRelaunch",

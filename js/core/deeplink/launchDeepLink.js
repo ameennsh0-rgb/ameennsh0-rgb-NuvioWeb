@@ -1,4 +1,5 @@
 import { parseTitleDeepLink } from "./deepLinkParser.js";
+import { isValidPartyCode, normalizePartyCode } from "../party/partyModels.js";
 
 /**
  * Title deep links for the Smart TV apps, the web side of the Android TV app's title links (launchSingleTop).
@@ -10,6 +11,40 @@ import { parseTitleDeepLink } from "./deepLinkParser.js";
  */
 
 let pendingLaunchDeepLink = null;
+
+/* Web party invite: https://<web app>/?party=CODE. Kept in sessionStorage (30 min) so it survives the
+   reloads of sign-in / profile selection, then opens the Party screen with the code filled in, once. */
+const PARTY_KEY = "nuvio.pendingPartyCode";
+const PARTY_TTL_MS = 30 * 60 * 1000;
+
+function readPendingPartyCode() {
+  try {
+    const raw = JSON.parse(globalThis.sessionStorage?.getItem(PARTY_KEY) || "null");
+    if (raw && isValidPartyCode(raw.code) && Date.now() - Number(raw.at) < PARTY_TTL_MS) {
+      return raw.code;
+    }
+    globalThis.sessionStorage?.removeItem(PARTY_KEY);
+  } catch (error) {
+    /* storage unavailable */
+  }
+  return null;
+}
+
+/** Picks ?party=CODE off the URL (and removes it from the address bar). Call once at startup. */
+export function takePartyInviteFromUrl() {
+  try {
+    const url = new URL(globalThis.location.href);
+    if (!url.searchParams.has("party")) return null;
+    const code = normalizePartyCode(url.searchParams.get("party"));
+    url.searchParams.delete("party");
+    globalThis.history?.replaceState?.(null, "", url.pathname + url.search + url.hash);
+    if (!isValidPartyCode(code)) return null;
+    globalThis.sessionStorage?.setItem(PARTY_KEY, JSON.stringify({ code, at: Date.now() }));
+    return code;
+  } catch (error) {
+    return null;
+  }
+}
 
 function launchParamsOf(system) {
   let params = system?.launchParams;
@@ -101,7 +136,7 @@ export function takeTizenLaunchDeepLink({ appControl = currentTizenAppControl() 
 }
 
 export function hasPendingLaunchDeepLink() {
-  return Boolean(pendingLaunchDeepLink);
+  return Boolean(pendingLaunchDeepLink) || Boolean(readPendingPartyCode());
 }
 
 /**
@@ -114,6 +149,23 @@ export function hasPendingLaunchDeepLink() {
  */
 export async function openPendingLaunchDeepLink(router, startupRoutes) {
   const current = router.getCurrent();
+  if (
+    !pendingLaunchDeepLink &&
+    current &&
+    !router.pendingMountParams &&
+    !startupRoutes.has(current)
+  ) {
+    const code = readPendingPartyCode();
+    if (code) {
+      try {
+        globalThis.sessionStorage?.removeItem(PARTY_KEY);
+      } catch (error) {
+        /* ignore */
+      }
+      await router.navigate("watchParty", { code });
+      return true;
+    }
+  }
   if (
     !pendingLaunchDeepLink ||
     !current ||

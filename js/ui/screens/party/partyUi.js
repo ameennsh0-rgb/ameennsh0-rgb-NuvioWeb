@@ -419,6 +419,42 @@ export async function showInviteDialog(party, { onDismiss = null } = {}) {
       return wrap;
     },
     buttons: [
+      ...(/^https?:/.test(party.inviteLink || "")
+        ? [
+            {
+              key: "share",
+              label: "Share link",
+              onAction: async () => {
+                const btn = dialog?._buttonEls?.find((el) => el.dataset.key === "share");
+                const label = btn?.querySelector(".nuvio-dialog-button-label");
+                const flash = (text) => {
+                  if (!label) return;
+                  label.textContent = text;
+                  setTimeout(() => (label.textContent = "Share link"), 1800);
+                };
+                const text = `Join my Nuvio watch party: ${party.inviteLink}`;
+                try {
+                  if (navigator.share) {
+                    await navigator.share({
+                      title: "Nuvio watch party",
+                      text,
+                      url: party.inviteLink
+                    });
+                    return;
+                  }
+                } catch (error) {
+                  if (error?.name === "AbortError") return;
+                }
+                try {
+                  await navigator.clipboard.writeText(party.inviteLink);
+                  flash("Link copied");
+                } catch (error) {
+                  flash("Copy failed");
+                }
+              }
+            }
+          ]
+        : []),
       {
         key: "close",
         label: t("action_close", [], "Close"),

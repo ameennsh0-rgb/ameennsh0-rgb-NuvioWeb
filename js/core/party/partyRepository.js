@@ -9,6 +9,7 @@ import { AvatarRepository } from "../../data/remote/supabase/avatarRepository.js
 import { MemberAccessRepository } from "../../data/remote/supabase/memberAccessRepository.js";
 import { RealtimeSocket, realtimeWebsocketUrl } from "../network/realtimeClient.js";
 import { PartyApi } from "./partyApi.js";
+import { Platform } from "../../platform/index.js";
 import { PartyClock } from "./partyClock.js";
 import { PartySync } from "./partySync.js";
 import {
@@ -41,6 +42,22 @@ const CLOCK_SAMPLE_GAP_MS = 400;
 const CLOCK_SAMPLES = 4;
 const PRESENCE_DELAY_MS = 250;
 const SIGNED_AVATAR_SECONDS = 24 * 60 * 60;
+
+/** In a browser the invite is a direct link back to this web app, which opens the Party screen with the code. */
+function webInviteLink(code) {
+  try {
+    if (
+      Platform.isBrowser() &&
+      globalThis.location?.origin &&
+      /^https?:/.test(globalThis.location.origin)
+    ) {
+      return `${globalThis.location.origin}/?party=${encodeURIComponent(code)}`;
+    }
+  } catch (error) {
+    /* fall through to the app link */
+  }
+  return "";
+}
 
 function createEmitter() {
   const listeners = new Set();
@@ -292,9 +309,9 @@ export function createPartyRepository({
       connected: false,
       hostOnly: info.host_only,
       sharing: false,
-      inviteLink: isCustomServer()
-        ? `nuvio://party/${info.code}`
-        : `https://nuvio.tv/party/${info.code}`
+      inviteLink:
+        webInviteLink(info.code) ||
+        (isCustomServer() ? `nuvio://party/${info.code}` : `https://nuvio.tv/party/${info.code}`)
     };
     return withMedia(party, info.media);
   }
