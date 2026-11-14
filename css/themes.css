@@ -1,0 +1,56 @@
+
+/* ===== Phone fit (html.phone-fit is set by the viewport script in index.html) =====
+   The page is rendered at a virtual width (720 portrait / 1280 landscape) and
+   scaled to the screen, so these rules tune the TV layout for that canvas. */
+@media (orientation: portrait) {
+  html.phone-fit .home-shell {
+    --legacy-sidebar-rail-width: 92px;
+    --legacy-sidebar-item-width: 68px;
+    --legacy-sidebar-padding: 12px;
+    --legacy-sidebar-item-gap: 14px;
+    --legacy-sidebar-leading-offset: 12px;
+    --sidebar-leading-visual-size: 56px;
+    --sidebar-icon-size: 36px;
+  }
+  html.phone-fit .home-main {
+    padding-left: 22px;
+    padding-right: 22px;
+  }
+  html.phone-fit .home-screen-shell.home-layout-modern {
+    --home-content-start: 26px;
+    --home-track-end: 26px;
+    --home-continue-track-end: 26px;
+    --modern-track-peek-extension: 40px;
+    --modern-hero-media-width: 100%;
+    --modern-hero-copy-right: 26px;
+    --modern-hero-copy-max-width: 78%;
+    --modern-hero-logo-max-width: 380px;
+  }
+}
+
+/* Phone player: comfortably thumb-sized controls and a taller seek hit area
+   (the canvas is scaled down ~0.55-0.66x, so sizes are bumped to compensate). */
+html.phone-fit #playerUiRoot {
+  --player-control-size: 66px;
+  --player-control-icon: 34px;
+  --player-controls-x: 36px;
+}
+@media (orientation: portrait) {
+  html.phone-fit #playerUiRoot {
+    --player-control-size: 80px;
+    --player-control-icon: 40px;
+    --player-controls-x: 28px;
+  }
+}
+html.phone-fit .player-progress-shell {
+  padding: 22px 0;
+  margin-bottom: -22px;
+}
+html.phone-fit .player-progress-track {
+  height: 8px;
+}
+
+/* Keep the call button clear of the player's clock / "ends at" block. */
+html.phone-fit #nuvio-call.in-player:not(.nc-win) {
+  top: 88px;
+}

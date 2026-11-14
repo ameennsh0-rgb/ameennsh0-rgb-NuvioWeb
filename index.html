@@ -44,6 +44,78 @@
         );
       })();
     </script>
+    <script>
+      /* Phone fit. The UI is laid out for a TV/desktop-sized viewport (fixed px).
+         On a phone that renders everything huge and clipped, so give phones a
+         virtual layout width the existing styles were designed for and let the
+         browser scale it to the screen: ~1280px wide in landscape, ~720px in
+         portrait. TVs, desktops and large tablets are left alone.
+         Opt out with ?noscale (or localStorage nuvio.phoneScale = "off"). */
+      (function phoneViewport() {
+        try {
+          var root = window;
+          var ua = String((navigator && navigator.userAgent) || "");
+          var search = String((location && location.search) || "").toLowerCase();
+          if (search.indexOf("noscale") !== -1) return;
+          try {
+            if (localStorage.getItem("nuvio.phoneScale") === "off") return;
+          } catch (e) {}
+          if (root.__NUVIO_PLATFORM__ === "tizen" || root.tizen) return;
+          if (/tizen|web0s|webos|smart-?tv|netcast|vidaa|hbbtv|aftb|crkey|bravia/i.test(ua)) return;
+          var coarse = false;
+          try {
+            coarse = !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+          } catch (e) {}
+          var shortSide = Math.min(screen.width || 0, screen.height || 0);
+          var isMobileUa = /android|iphone|ipod|mobile/i.test(ua);
+          // Phones only: coarse pointer, short side of the screen <= 600 CSS px.
+          if (!coarse || !isMobileUa || !shortSide || shortSide > 600) return;
+
+          // The page is loaded with width=device-width, so innerWidth/innerHeight
+          // describe the real orientation at this moment (not later, when an
+          // on-screen keyboard can shrink the height).
+          var loadedLandscape = window.innerWidth > window.innerHeight;
+          var rotated = false;
+          function isLandscape() {
+            try {
+              if (screen.orientation && screen.orientation.type) {
+                if (screen.orientation.type.indexOf("landscape") === 0) return true;
+                if (rotated) return false;
+              }
+            } catch (e) {}
+            if (typeof window.orientation === "number" && Math.abs(window.orientation) === 90) return true;
+            if (screen.width > screen.height) return true;
+            return !rotated && loadedLandscape;
+          }
+          function viewportContent() {
+            // Width only: the browser fits this virtual width to the real screen,
+            // so there is no scale math to get wrong on odd devices.
+            return "width=" + (isLandscape() ? 1280 : 720) + ", user-scalable=no";
+          }
+          function apply() {
+            var meta = document.querySelector("meta[name='viewport']");
+            if (!meta) return;
+            meta.setAttribute("content", viewportContent());
+            document.documentElement.className += " phone-fit";
+          }
+          apply();
+          function onRotate() {
+            rotated = true;
+            // Re-read after the browser has settled on the new orientation.
+            setTimeout(function () {
+              var meta = document.querySelector("meta[name='viewport']");
+              if (meta) meta.setAttribute("content", viewportContent());
+            }, 150);
+          }
+          window.addEventListener("orientationchange", onRotate);
+          try {
+            if (screen.orientation && screen.orientation.addEventListener) {
+              screen.orientation.addEventListener("change", onRotate);
+            }
+          } catch (e) {}
+        } catch (e) {}
+      })();
+    </script>
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <title>Nuvio TV</title>
 
