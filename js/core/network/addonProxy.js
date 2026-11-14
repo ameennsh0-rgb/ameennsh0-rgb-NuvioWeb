@@ -40,7 +40,11 @@ export async function requestAddonWithFallback(request, url, options = {}) {
     return await request(url, options);
   } catch (error) {
     const aborted = error?.name === "AbortError" || options?.signal?.aborted;
-    if (aborted || Number(error?.status || 0) > 0) throw error;
+    const status = Number(error?.status || 0);
+    // A real answer (404, empty list, ...) is final. But some addons refuse a browser's
+    // direct request (403/401/451, or a rate limit) while answering the proxy, so retry those.
+    const retryable = [401, 403, 429, 451].includes(status);
+    if (aborted || (status > 0 && !retryable)) throw error;
     return request(proxied, options);
   }
 }
