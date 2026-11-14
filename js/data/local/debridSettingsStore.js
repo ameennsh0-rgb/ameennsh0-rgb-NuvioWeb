@@ -1,3 +1,4 @@
+import { Platform } from "../../platform/index.js";
 import { createProfileScopedStore } from "./profileScopedStore.js";
 
 const KEY = "debridSettings";
@@ -580,6 +581,32 @@ function normalizeDebridSettings(value = {}) {
   };
 }
 
+/* Web build: "Resolve playable links" is always on, and streams are capped at 5 GB unless a different
+   cap was chosen. Applied only when reading for this browser, so nothing is written back to the
+   account (the phone app keeps its own values) and a sync can no longer switch it off here. */
+const WEB_DEFAULT_SIZE_MAX_GB = 5;
+let webDefaultsSource = null;
+let webDefaultsResult = null;
+function withWebDefaults(settings) {
+  try {
+    if (!settings || !Platform.isBrowser()) return settings;
+    if (webDefaultsSource === settings) return webDefaultsResult;
+    const prefs = settings.streamPreferences || {};
+    webDefaultsSource = settings;
+    webDefaultsResult = {
+      ...settings,
+      enabled: true,
+      streamPreferences: {
+        ...prefs,
+        sizeMaxGb: Number(prefs.sizeMaxGb) > 0 ? prefs.sizeMaxGb : WEB_DEFAULT_SIZE_MAX_GB
+      }
+    };
+    return webDefaultsResult;
+  } catch (error) {
+    return settings;
+  }
+}
+
 const store = createProfileScopedStore({
   key: KEY,
   normalize: normalizeDebridSettings
@@ -644,7 +671,7 @@ export const DebridSettingsStore = {
   },
 
   get() {
-    return store.get();
+    return withWebDefaults(store.get());
   },
 
   replaceForProfile(profileId, nextValue, options = {}) {
